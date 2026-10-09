@@ -190,23 +190,32 @@ function unitSelect(item) {
   return `<select class="unit${item.unit_ok ? "" : " invalid"}">${opts}</select>`;
 }
 
+// Every state is tag-on-its-own-line, then the control stacked directly below --
+// a <div> wrapper so a <select> stacks exactly like the plain-text match does,
+// instead of sitting inline next to the tag at a width that depends on the tag's
+// own text length (that's what made the dropdowns start at different x positions
+// row to row).
 function itemCell(item) {
   const r = item.resolution;
   if (r.status === "exact" || r.status === "fuzzy") {
     return `<span class="tag ${r.status}">${r.status === "exact" ? "&#10003; matched" : "check match"}</span>
-      <div>${esc(r.sku_name)}</div>`;
+      <div class="item-value">${esc(r.sku_name)}</div>`;
   }
   if (r.status === "ambiguous") {
     const opts = r.candidates.map((c) => `<option value="${esc(c.sku_id)}">${esc(c.name)}</option>`).join("");
     return `<span class="tag ambiguous">which one?</span>
-      <select class="pick invalid"><option value="">Choose item…</option>${opts}
-        <option value="new">+ Create new item</option></select>
-      <input class="newname" type="text" placeholder="New item name" value="${esc(item.name)}" hidden>`;
+      <div class="item-value">
+        <select class="pick invalid"><option value="">Choose item…</option>${opts}
+          <option value="new">+ Create new item</option></select>
+        <input class="newname" type="text" placeholder="New item name" value="${esc(item.name)}" hidden>
+      </div>`;
   }
   return `<span class="tag unknown">not in catalogue</span>
-    <select class="pick invalid"><option value="">Choose…</option>
-      <option value="new">+ Create new item</option></select>
-    <input class="newname" type="text" placeholder="New item name" value="${esc(item.name)}" hidden>`;
+    <div class="item-value">
+      <select class="pick invalid"><option value="">Choose…</option>
+        <option value="new">+ Create new item</option></select>
+      <input class="newname" type="text" placeholder="New item name" value="${esc(item.name)}" hidden>
+    </div>`;
 }
 
 function renderReview(s) {
