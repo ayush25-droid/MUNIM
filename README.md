@@ -121,6 +121,44 @@ cd frontend && python3 -m http.server 5500
 
 Reset a dirty demo database with `python -m app.seed --reset`.
 
+### Running on Windows (PowerShell)
+
+Install Python 3.11+, Git and [Ollama](https://ollama.com). For voice input also install
+ffmpeg (`winget install Gyan.FFmpeg`, then reopen the terminal).
+
+```powershell
+# once: keep a single model resident on the 8 GB GPU, then restart Ollama from the tray
+setx OLLAMA_MAX_LOADED_MODELS 1
+ollama pull gemma4:latest
+
+# backend
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1          # if blocked: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+pip install -r requirements.txt
+copy ..\.env.example .env            # set OLLAMA_HOST=http://localhost:11434 when Ollama is on this machine
+$env:PYTHONUTF8 = 1                  # stops the console crashing on Hindi/Kannada text
+python -m app.seed
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# frontend, in a second terminal
+cd frontend
+python -m http.server 5500
+```
+
+Check `http://localhost:8000/api/health` returns `"stubs":false`, then open
+`http://localhost:5500`. The first scan takes about 70 s while the model loads.
+
+**Testing from a phone.** Put the phone on the same network, find the laptop's address with
+`ipconfig`, and allow the ports once in an Administrator PowerShell:
+`New-NetFirewallRule -DisplayName "Munim" -Direction Inbound -Protocol TCP -LocalPort 8000,5500 -Action Allow`.
+Then open `http://<laptop-ip>:5500/index.html?api=http://<laptop-ip>:8000`.
+
+**Voice.** The first voice request downloads the Whisper `small` model (about 500 MB), so do
+it once on good wifi beforehand. Browsers generally block the microphone on plain `http://`
+pages other than `localhost`, so use voice from the laptop's own browser. Photo scanning
+works from a phone either way.
+
 ### Key dependencies
 
 | | |
