@@ -61,3 +61,27 @@ pre { white-space:pre-wrap; background:var(--card); border:1px solid var(--line)
 .low-row td:first-child { font-weight:600; color:var(--bad); }
 .num { text-align:right; }
 [hidden] { display: none !important; }
+
+/* Phone: each review row becomes a card so nothing needs a sideways scroll. */
+@media (max-width: 640px) {
+  .table-wrap { overflow: visible; background: none; border: 0; }
+  table, tbody { display: block; min-width: 0; }
+  thead { display: none; }
+  #items tr { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 10px; padding: 12px;
+              margin-bottom: 12px; background: var(--card); border: 1px solid var(--line);
+              border-radius: 10px; }
+  #items td { padding: 0; border: 0; }
+  #items td::before { content: attr(data-label); display: block; font-size: .7rem;
+                      text-transform: uppercase; color: var(--muted); }
+  #items td[data-label="Bill line"] { grid-column: 1 / -1; }
+  #items td[data-label="Bill line"]::before { display: none; }
+  #items td[data-label="Item"] { grid-column: 1 / -1; }
+  #items tr.exact, #items tr.fuzzy, #items tr.needs { border-left-width: 4px; }
+  #items tr.exact { border-left-color: var(--ok); }
+  #items tr.fuzzy { border-left-color: var(--warn); }
+  #items tr.needs { border-left-color: var(--bad); }
+  #items td:first-child { border-left: 0 !important; }
+  #items select, #items input[type=number] { width: 100%; }
+  #items input[type=checkbox] { width: 22px; }
+  .newname { width: 100%; }
+}

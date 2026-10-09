@@ -153,13 +153,13 @@ function renderReview(s) {
     tr.className = st === "exact" ? "exact" : st === "fuzzy" ? "fuzzy" : "needs";
     tr.dataset.line = item.line_index;
     tr.innerHTML = `
-      <td class="line">${esc(item.line)}</td>
-      <td>${itemCell(item)}</td>
-      <td><input class="qty" type="number" min="0" step="any" value="${esc(item.qty)}"></td>
-      <td>${unitSelect(item)}</td>
-      <td><input class="price" type="number" min="0" step="0.01"
-           value="${item.price_paise == null ? "" : esc(item.price_paise / 100)}"></td>
-      <td><input class="skip" type="checkbox" aria-label="Skip this line"></td>`;
+      <td class="line" data-label="Bill line">${esc(item.line)}</td>
+      <td data-label="Item">${itemCell(item)}</td>
+      <td data-label="Qty"><input class="qty" type="number" min="0" step="any" value="${esc(item.qty)}"></td>
+      <td data-label="Unit">${unitSelect(item)}</td>
+      <td data-label="Price ₹"><input class="price" type="number" min="0" step="0.01"
+           value="${item.price_paise == null ? "" : esc((item.price_paise / 100).toFixed(2))}"></td>
+      <td data-label="Skip"><input class="skip" type="checkbox" aria-label="Skip this line"></td>`;
     tbody.appendChild(tr);
   }
   updateConfirm();

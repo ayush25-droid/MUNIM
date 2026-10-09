@@ -13,7 +13,7 @@ prose — the next reader needs what's true now, not a narrative.
 | | Current task | Blocked on | Last pushed |
 |---|---|---|---|
 | **Ayush Rai** — the spine | spine done; integration-tested against real routes | nothing | this push |
-| **Saket** — API + review UI | pipeline wired in; exception-mapping bug fixed (see below) | nothing | this push |
+| **Saket** — API + review UI | done; verified live against the 4060 | nothing | this push |
 | **Lokesh** — data + resolver | db/units/resolver/inventory/reorder/reply/seed done | nothing | this push |
 | **Ayush Aditya** — machine, bills, QA | integration & demo prep | real end-to-end run on the 4060 (this push was tested with Ollama unreachable, via the rules.py fallback path) | f42a546 |
 
@@ -184,6 +184,11 @@ _Append as you hit them. Saves the next person an hour._
 | Windows console default cp1252 charmap crashes when printing Kannada/Hindi text | Use `ensure_ascii=True` or set UTF-8 stream output |
 | Cold-start Ollama vision load takes ~70s on first inference | Keep `keep_alive: 30m` so model stays resident in GPU memory; warm calls take 7-12s |
 | `routes/scan.py` caught `pipeline.ScanAlreadyConfirmed` (wrong name) and no `pipeline.BadRequestError`/`ValidationError` at all -- a real double-confirm would've crashed with `AttributeError` instead of returning 409 | Fixed to catch `ScanAlreadyConfirmedError`/`ValidationError`/`BadRequestError` by their actual names; same gap existed in `routes/chat.py` for bad `shop_id`, fixed there too. Exception names/types aren't frozen anywhere in the docs -- `pipeline.py`'s module docstring is now the source of truth for them. |
+| Seeded DB has no low-stock SKUs, so the dashboard shows no red rows (found by Saket) | **Lokesh:** seed a few SKUs near zero so demo moment 1 and the "before" screenshot show red rows |
+| `5 pc Amul Butter 500g` matches **exact** to "Amul Butter 100g" — the alias `amul butter` ignores size (found by Saket) | **Ayush Rai / Lokesh:** make size part of matching, or send a size-bearing name to `ambiguous` |
+| Ambiguous dropdown for `aata` offered Tata Salt and Patanjali Ghee as candidates (found by Saket) | **Lokesh:** drop low-score candidates from the list; keep only plausible ones |
+| Printed-bill line `140.00 Fortune Sunlite Refined Oil 1L12 pouch` parsed as qty 1 litre (found by Saket) | **Ayush Rai:** check OCR/extract for pack-size text like `1L12`; shopkeeper can edit the row meanwhile |
+| Phone cannot reach the app if backend binds to localhost or the laptop firewall (firewalld on Fedora) blocks 8000/5500 | Run uvicorn with `--host 0.0.0.0`, open both ports, browse with `?api=http://<laptop-ip>:8000` |
 | `backend/requirements.txt` had two conflicting versions (unpinned + `requests`, vs. pinned + `httpx`) after independent pushes | Kept the pinned set; switched `llm.py` from `requests` to `httpx` rather than carrying two HTTP libraries |
 
 ---
@@ -196,4 +201,5 @@ Format: `HH:MM — who — what`
 14:15 — Saket — backend skeleton (main/config/routes, stubs) + full frontend (scan, review table, dashboard) done; browser-tested against stubs
 14:20 — Ayush Aditya — Environment verified (RTX 4060, Ollama gemma4:latest, OLLAMA_MAX_LOADED_MODELS=1). Full test bills suite generated in tests/bills/. Gate tests run and passed: printed 100%, handwritten 5/5 shorthand lines parsed in 7.67s, not-a-bill refused cleanly without hallucination, Kannada transliterated. Teammates unblocked.
 14:45 — Ayush Rai — llm.py, imageprep.py, ocr.py, extract.py, rules.py, pipeline.py done. Also built Lokesh's db.py/units.py/resolver.py/inventory.py/reorder.py/reply.py/seed.py to unblock integration. Rebased onto Saket's + Aditya's pushes; fixed the ScanAlreadyConfirmed exception-name bug and missing BadRequestError/ValidationError handling in routes/scan.py + routes/chat.py. Added Kannada unit corrections (moote, nang/nangu, pees) from tests/corpus.md to units.py. Verified with TestClient against the real FastAPI app (not stubs): scan/confirm/chat/inventory, 400/409/422 error mapping, ambiguous near-tie -> confirm -> alias learned -> re-scan resolves silently. Not yet run against the live model on the 4060.
+15:10 — Saket — Verified full stack against live Ollama on the 4060 (not stubs): printed/handwritten/Kannada/not-a-bill bills scanned from the browser in 6-8 s; ambiguous pick -> confirm (double-click = 1 POST) -> aliases learned -> re-scan resolves silently; non-bill refused; 409 on repeat confirm. Review table now stacks into cards below 640 px (no sideways scroll on phones); prices shown as 2 decimals. Not yet tried on a physical phone.
 ```
