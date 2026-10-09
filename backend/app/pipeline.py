@@ -215,7 +215,13 @@ def confirm_scan(shop_id: int, scan_id: int, decisions: list[dict]) -> dict:
     # scan time (see scan_bill's docstring) so a client can't flip which way a bill
     # books after the fact.
     direction = scan["direction"]
-    actions = inventory.apply_scan(shop_id, scan_id, confirmed_items, direction=direction)
+    try:
+        actions = inventory.apply_scan(shop_id, scan_id, confirmed_items, direction=direction)
+    except inventory.InsufficientStockError as e:
+        # Whole bill is one transaction (apply_scan already rolled it back) -- a
+        # sale that can't be fulfilled must reject cleanly, not book the lines
+        # that happened to fit and silently drop the rest.
+        raise ValidationError(str(e)) from e
     db.set_scan_status(scan_id, "confirmed")
 
     return {
@@ -265,6 +271,7 @@ def handle_message(shop_id: int, sender: str, text: str) -> dict:
 
     direction = "stock_in" if intent == "stock_in" else "stock_out"
     actions = []
+    problems = []
     for item in parsed["items"]:
         resolution = resolver.resolve(shop_id, item["name"])
         if resolution["status"] not in ("exact", "fuzzy"):
@@ -277,18 +284,35 @@ def handle_message(shop_id: int, sender: str, text: str) -> dict:
         unit = units.normalize_unit(item.get("unit") or "", lang=lang) or item.get("unit")
         qty_canonical, _confident = units.convert(item["qty"], unit, sku_id) if unit else (item["qty"], False)
 
-        inventory.apply_movement(
-            shop_id, sku_id, direction, qty_canonical,
-            price_paise=item.get("price_paise"), unit_as_said=item.get("unit"),
-        )
+        try:
+            inventory.apply_movement(
+                shop_id, sku_id, direction, qty_canonical,
+                price_paise=item.get("price_paise"), unit_as_said=item.get("unit"),
+            )
+        except inventory.InsufficientStockError as e:
+            # Each item here commits independently (unlike apply_scan's one
+            # transaction), so a blocked item doesn't undo an already-fine sale
+            # earlier in the same message -- it just isn't booked itself, and the
+            # reply says so instead of pretending it was.
+            problems.append(reply.insufficient_stock(e.sku_name, e.have, e.need, e.unit, lang))
+            continue
         actions.append({"sku_id": sku_id, "direction": direction, "qty": qty_canonical, "unit": unit})
 
-    # No resolved action means every item in the message was ambiguous, unknown, or
-    # unparseable -- reply.stock_query_answer's empty-rows case ("couldn't find that
-    # item") reads naturally here too, since the shopkeeper needs the same nudge to
-    # re-check the name.
+    # No resolved action and no problem means every item in the message was
+    # ambiguous, unknown, or unparseable -- reply.stock_query_answer's empty-rows
+    # case ("couldn't find that item") reads naturally here, since the shopkeeper
+    # needs the same nudge to re-check the name.
+    if actions:
+        reply_text = reply.confirm_summary(actions, lang)
+        if problems:
+            reply_text = f"{reply_text} {' '.join(problems)}"
+    elif problems:
+        reply_text = " ".join(problems)
+    else:
+        reply_text = reply.stock_query_answer([], lang)
+
     return {
-        "reply": reply.confirm_summary(actions, lang) if actions else reply.stock_query_answer([], lang),
+        "reply": reply_text,
         "lang": lang,
         "actions": actions,
         "debug": {"extract_source": parsed["_source"], "detected_lang": lang},

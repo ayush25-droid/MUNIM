@@ -12,15 +12,36 @@ from __future__ import annotations
 from . import db, reorder, units
 
 LOW_STOCK_DAYS = 3
+# Tolerance for float rounding from unit conversion ratios (e.g. box -> litre) --
+# without it, a sale of exactly the remaining stock could spuriously fail by a
+# fraction of a unit.
+_EPSILON = 1e-6
+
+
+class InsufficientStockError(ValueError):
+    """Raised when a stock_out would take a SKU below zero. A sale that can't
+    actually be fulfilled must not look like it succeeded -- silently flooring
+    `current_qty` at 0 (the old behaviour) hid a real problem: the shopkeeper would
+    see "sale booked" and a wrong, lower stock number instead of being told the
+    sale can't happen as stated. Raised before any write, so a blocked sale leaves
+    no trace -- no ledger row, no quantity change.
+    """
+
+    def __init__(self, sku_name: str, have: float, need: float, unit: str):
+        self.sku_name = sku_name
+        self.have = have
+        self.need = need
+        self.unit = unit
+        super().__init__(f"insufficient stock for {sku_name}: have {have} {unit}, need {need} {unit}")
 
 
 def apply_movement(shop_id: int, sku_id: int, direction: str, qty_canonical: float,
                     price_paise: int | None = None, unit_as_said: str | None = None,
                     scan_id: int | None = None, conn=None) -> None:
     """Records one ledger row and updates the SKU's running quantity (and cost/sell
-    price, if a price was given). `current_qty` floors at 0; the ledger still records
-    the full reported movement, so the audit trail never lies even when the number on
-    screen does.
+    price, if a price was given). Raises `InsufficientStockError` instead of
+    writing anything if a stock_out would take `current_qty` negative -- see that
+    class's docstring.
     """
     owns_conn = conn is None
     conn = conn or db.get_connection()
@@ -30,6 +51,10 @@ def apply_movement(shop_id: int, sku_id: int, direction: str, qty_canonical: flo
             raise ValueError(f"unknown sku {sku_id}")
         if direction not in ("stock_in", "stock_out"):
             raise ValueError(f"unknown direction {direction!r}")
+        if direction == "stock_out" and qty_canonical > sku["current_qty"] + _EPSILON:
+            raise InsufficientStockError(
+                sku["name"], sku["current_qty"], qty_canonical, sku["canonical_unit"],
+            )
 
         db.insert_ledger(
             sku_id, direction, qty_canonical,
@@ -42,6 +67,9 @@ def apply_movement(shop_id: int, sku_id: int, direction: str, qty_canonical: flo
             if price_paise is not None:
                 updates["cost_per_unit"] = price_paise
         else:
+            # The insufficient-stock check above already guarantees this can't go
+            # negative; max(0, ...) stays only as a defensive floor against float
+            # rounding at the boundary, not as the primary behaviour anymore.
             updates["current_qty"] = max(0, sku["current_qty"] - qty_canonical)
             if price_paise is not None:
                 updates["sell_price"] = price_paise

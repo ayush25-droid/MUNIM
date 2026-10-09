@@ -125,3 +125,15 @@ def stock_query_answer(rows: list[dict], lang: str) -> str:
     if lang == "kn":
         return f"{row['name']} ಈಗ {row['qty']} {row['unit']} ಇದೆ{cover_kn}."
     return f"{row['name']} has {row['qty']} {row['unit']} left{cover_en}."
+
+
+def insufficient_stock(name: str, have: float, need: float, unit: str, lang: str) -> str:
+    """A stock_out that can't be fulfilled -- inventory.InsufficientStockError
+    blocks the write itself, this just says so in words instead of a raw
+    exception message, matching the rest of this file's tone.
+    """
+    if lang == "hi":
+        return f"{name} ka stock kam hai (sirf {have} {unit}) -- {need} {unit} ki sale nahi ho sakti."
+    if lang == "kn":
+        return f"{name} ಸ್ಟಾಕ್ ಕಡಿಮೆ ಇದೆ (ಕೇವಲ {have} {unit}) -- {need} {unit} ಮಾರಾಟ ಸಾಧ್ಯವಿಲ್ಲ."
+    return f"Not enough {name} in stock (only {have} {unit} left) -- can't sell {need} {unit}."
