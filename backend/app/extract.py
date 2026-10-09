@@ -119,6 +119,7 @@ def extract_line(line: str) -> dict:
     falls through to `rules.extract_line`. `_source` is "llm" or "rule" so a silent
     fallback is visible in the API response rather than buried in a log.
     """
+    line = rules.normalize_price_notation(line)  # "480/-", "₹480" -> "480"
     try:
         result = llm.generate(
             LINE_PROMPT_TEMPLATE.format(line=line, units=", ".join(UNITS)),
@@ -126,11 +127,17 @@ def extract_line(line: str) -> dict:
         )
         if not isinstance(result, dict):
             raise llm.LLMError("line extraction did not return an object")
+        # The price is read from the line's own text, in code: the model scales
+        # rupees to paise unreliably ("24.00" -> 2400 but "480" -> 480). Its value is
+        # only a fallback for lines with no trailing number.
+        price_paise = rules.trailing_price_paise(line)
+        if price_paise is None:
+            price_paise = _as_optional_int(result.get("price_paise"))
         return {
             "name": str(result.get("name", "")).strip().lower(),
             "qty": result.get("qty", 0),
             "unit": result.get("unit") if result.get("unit") in UNITS else None,
-            "price_paise": _as_optional_int(result.get("price_paise")),
+            "price_paise": price_paise,
             "_source": "llm",
         }
     except llm.LLMError:

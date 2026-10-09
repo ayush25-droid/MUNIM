@@ -11,6 +11,7 @@ the common shape of a printed line item.
 from __future__ import annotations
 
 import re
+from decimal import Decimal, InvalidOperation
 
 try:
     from .units import UNITS  # Lokesh's canonical unit list, once it exists.
@@ -50,7 +51,7 @@ _LINE_RE = re.compile(
     re.VERBOSE,
 )
 
-_TRAILING_PRICE_RE = re.compile(r"^(?P<name>.*\S)\s+(?P<price>\d+(?:\.\d+)?)\s*$")
+_TRAILING_PRICE_RE = re.compile(r"^(?P<name>.*\S)\s+(?P<price>\d[\d,]*(?:\.\d+)?)\s*$")
 
 # Romanized-Hindi / English keyword cues, used only by the rule-based message parser.
 _QUERY_WORDS = {
@@ -93,15 +94,56 @@ def _lookup_unit(token: str | None) -> str | None:
     return _UNIT_LOOKUP.get(token.lower())
 
 
+def _rupees_to_paise(token: str) -> int | None:
+    """A written price ("480", "24.00", "4,600") is rupees -> integer paise."""
+    try:
+        return round(Decimal(token.replace(",", "")) * 100)
+    except InvalidOperation:
+        return None
+
+
+# Ways a price is written on a bill: Rs 480, Rs.480, 480/-, 480/=, rupee sign, "480 rs".
+_SLASH_DASH_RE = re.compile(r"(?<=\d)\s*/\s*[-=]")
+_CURRENCY_RE = re.compile(r"(?:₹|\brs\b\.?|\binr\b|\brupees?\b|\brupaye\b|रु(?:पये|\.)?)\s*", re.IGNORECASE)
+
+
+def normalize_price_notation(line: str) -> str:
+    """Strip currency decoration so "480/-", "₹480" and "Rs. 480" all read as plain "480".
+
+    A bare number on a bill is rupees; the decoration says nothing new, it only gets in
+    the way of reading the number. Applied before every price parse, whichever extractor
+    handles the line, so the model's habit of echoing "480/-" doesn't matter.
+    """
+    line = _SLASH_DASH_RE.sub("", line)
+    line = _CURRENCY_RE.sub("", line)
+    return re.sub(r"\s{2,}", " ", line).strip()
+
+
+_LEADING_QTY_RE = re.compile(r"^\s*\d+(?:\.\d+)?\s*[.:]?\s*")
+
+
+def trailing_price_paise(line: str) -> int | None:
+    """Price from the number at the end of a bill line, in integer paise, or None.
+
+    Bills write rupees ("480" is Rs 480, "480/-" and "₹480" too, "24.00" is Rs 24). The
+    x100 is done here, in code, instead of asking the model to -- the model scaled
+    "24.00" but not "480". The leading quantity is stripped first so it can't be mistaken
+    for the price, and a number with a unit attached ("500g", "10kg") isn't one either.
+    Works on column-style ledger lines too ("20 Maggi 60": the unit slot is the name).
+    """
+    rest = _LEADING_QTY_RE.sub("", normalize_price_notation(line), count=1)
+    pm = _TRAILING_PRICE_RE.match(rest)
+    return _rupees_to_paise(pm.group("price")) if pm else None
+
+
 def _split_name_price(text: str) -> tuple[str, int | None]:
     m = _TRAILING_PRICE_RE.match(text)
     if not m:
         return text.strip(), None
-    try:
-        price = float(m.group("price"))
-    except ValueError:
+    price = _rupees_to_paise(m.group("price"))
+    if price is None:
         return text.strip(), None
-    return m.group("name").strip(), round(price)
+    return m.group("name").strip(), price
 
 
 def extract_line(line: str) -> dict:
@@ -111,6 +153,7 @@ def extract_line(line: str) -> dict:
     a line this can't parse comes back with qty=0 so the caller can flag the row rather
     than crash.
     """
+    line = normalize_price_notation(line)
     m = _LINE_RE.match(line)
     if not m:
         return {
