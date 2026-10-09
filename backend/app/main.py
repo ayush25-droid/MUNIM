@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from . import config
-from .routes import chat, inventory, scan
+from .routes import chat, inventory, scan, voice
 
 log = config.get_logger("munim")
 app = FastAPI(title="Munim")
@@ -15,6 +15,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 app.include_router(scan.router)
 app.include_router(chat.router)
 app.include_router(inventory.router)
+app.include_router(voice.router)
 
 
 @app.exception_handler(HTTPException)

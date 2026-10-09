@@ -30,9 +30,10 @@ function setStatus(msg, isError) {
 }
 
 function show(which) {
-  $("capture").hidden = which === "result";
+  $("capture").hidden = which === "result" || which === "voice";
   $("review").hidden = which !== "review";
   $("result").hidden = which !== "result";
+  $("voice-result").hidden = which !== "voice";
 }
 
 // ---- image downscale (client-side, before upload) -----------------------
@@ -88,6 +89,79 @@ $("photo").addEventListener("change", async (e) => {
   } finally {
     document.querySelector(".scan-btn").classList.remove("busy");
   }
+});
+
+// ---- voice (prototype -- see feature/voice-input branch) ----------------
+
+let voiceLang = "hi"; // matches pipeline.DEFAULT_LANG
+let recorder = null;
+let recording = false;
+
+document.querySelectorAll(".lang-pill").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".lang-pill").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    voiceLang = btn.dataset.lang;
+  });
+});
+
+$("voice-btn").addEventListener("click", async () => {
+  if (recording) {
+    recorder.stop(); // onstop below does the upload
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (_) {
+    setStatus("Microphone access denied or unavailable.", true);
+    return;
+  }
+  const chunks = [];
+  recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  recorder.onstop = async () => {
+    stream.getTracks().forEach((t) => t.stop());
+    recording = false;
+    $("voice-btn").classList.remove("recording");
+    $("voice-label").textContent = "Speak instead";
+    await sendVoice(new Blob(chunks, { type: recorder.mimeType || "audio/webm" }));
+  };
+  recorder.start();
+  recording = true;
+  $("voice-btn").classList.add("recording");
+  $("voice-label").textContent = "Recording… tap to stop";
+  setStatus("");
+});
+
+async function sendVoice(blob) {
+  $("voice-btn").classList.add("busy");
+  setStatus("Transcribing…");
+  try {
+    const fd = new FormData();
+    fd.append("shop_id", SHOP_ID);
+    fd.append("sender", sender);
+    fd.append("language", voiceLang);
+    fd.append("audio", blob, "voice.webm");
+    const res = await api("/api/voice", { method: "POST", body: fd });
+    setStatus("");
+    renderVoiceResult(res);
+  } catch (err) {
+    setStatus(err.message, true);
+  } finally {
+    $("voice-btn").classList.remove("busy");
+  }
+}
+
+function renderVoiceResult(res) {
+  show("voice");
+  $("voice-transcript").textContent = `Heard: "${res.transcript}"`;
+  $("voice-reply").textContent = res.reply || "";
+}
+
+$("voice-again").addEventListener("click", () => {
+  setStatus("");
+  show("capture");
 });
 
 // ---- review table -------------------------------------------------------

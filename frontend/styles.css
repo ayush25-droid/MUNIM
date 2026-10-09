@@ -12,12 +12,21 @@ section { margin-bottom:24px; }
 
 .scan-btn { display:flex; flex-direction:column; align-items:center; gap:4px; padding:36px 16px;
             background:var(--accent); color:#fff; border-radius:16px; cursor:pointer;
-            font-size:1.5rem; font-weight:600; text-align:center; }
+            font-size:1.5rem; font-weight:600; text-align:center; width:100%; }
 .scan-btn small { font-size:.9rem; font-weight:400; opacity:.85; }
 .scan-icon { font-size:2.6rem; }
 .scan-btn.busy { opacity:.5; pointer-events:none; }
 #status { margin-top:12px; color:var(--muted); min-height:1.4em; text-align:center; }
 #status.error { color:var(--bad); font-weight:600; }
+
+.lang-select { display:flex; gap:8px; justify-content:center; margin-bottom:16px; }
+.lang-pill { font:inherit; padding:8px 18px; border-radius:99px; border:1px solid var(--line);
+             background:var(--card); color:var(--fg); cursor:pointer; font-weight:600; }
+.lang-pill.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+.voice-btn { margin-top:16px; background:var(--card); color:var(--fg); border:1px solid var(--line); }
+.voice-btn.recording { background:var(--bad); color:#fff; border-color:var(--bad); }
+.voice-btn.recording small { opacity:1; }
 
 .banner { padding:12px 14px; border-radius:10px; margin-bottom:12px; font-weight:600; }
 .banner.low { background:#fff3d6; color:#7a4a00; border:1px solid #f0cf85; }
