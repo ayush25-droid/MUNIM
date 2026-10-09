@@ -1,7 +1,9 @@
 # Munim
 
-**An open-weight AI agent that keeps a kirana shop's stock register from speech — in
-Kannada, Hindi, or English.**
+**Photograph a supplier bill. The inventory updates.**
+
+An open-weight AI agent that reads handwritten or printed kirana shop bills — in Kannada,
+Hindi, or English — and keeps the stock register from them.
 
 Hacktoberfest Hack Day Bengaluru '26 · Track 2 — Best Open-Source AI Project
 PS 03 — Open-Source AI Agent for Real-World Operations
@@ -13,26 +15,23 @@ A *munim* is the bookkeeper who keeps a shop's accounts. That's the job this age
 
 ## What it does
 
-The shop owner sends a voice note, the way they already talk:
+A delivery arrives with a bill — often handwritten on a pad, sometimes printed. The shopkeeper
+opens the web app, taps the camera, and photographs it.
 
-> "aaj bees Parle-G aaye, aur paanch kilo aata, aata ka rate badh gaya — chhiyalis rupaye"
+The agent reads the bill, works out which catalogue item each line refers to, and shows what
+it understood:
 
-The agent works out what they meant, writes two ledger entries with two different units,
-saves the new price against the right column, and replies with a confirmation.
+| Line read | Matched to | |
+|---|---|---|
+| `20 pkt Parle-G 480` | Parle-G Biscuit | matched |
+| `2 dzn Maggi 240` | **Maggi Noodles / Maggi Masala?** | needs you |
+| `5 kg Aashirvaad Atta 4600` | Aashirvaad Atta | matched |
 
-When it isn't sure, it asks — **once**:
+The shopkeeper picks the right Maggi, taps Confirm, and the ledger updates. **Next time, that
+line resolves on its own** — the answer was written to an alias table, so the agent asks once
+and never again.
 
-> **Owner:** do amul aaye
-> **Munim:** Amul Butter ya Amul Milk?
-> **Owner:** butter
-> **Munim:** 2 packet Amul Butter likh diya. Aage se "amul" ka matlab yahi samjhunga.
-
-That answer is written to an alias table, so the question is never asked again. The agent
-gets quieter the longer the shop uses it.
-
-And before stock runs out, it speaks first:
-
-> Parle-G 3 din mein khatam ho jayega. Order bhej doon?
+It gets quieter the longer the shop uses it.
 
 ## The problem
 
@@ -40,67 +39,67 @@ India has roughly 13 million kirana stores and almost none of them use inventory
 This is consistently misdiagnosed as a user-experience failure. It isn't.
 
 A shop owner has a customer at the counter, a delivery at the door, and one pair of hands.
-Typing thirty SKUs into an app isn't a task that competes badly for their attention — it's
-a task for which the time does not exist. Every inventory product aimed at this segment
-dies in the same place: **data entry**.
+Typing thirty SKUs into an app isn't a task that competes badly for their attention — it's a
+task for which the time does not exist. Every inventory product aimed at this segment dies in
+the same place: **data entry**.
 
-What they already do all day is talk. Voice notes are the default medium for this entire
-segment of Indian commerce, so the input channel is already solved and needs no training.
+But the bill is already in their hand. It's the one moment where the data exists in physical
+form, at exactly the time stock changes. Reading it costs the shopkeeper one photo.
 
 ## The hard part
 
-Not the speech. **The names.**
+Not the OCR. **The names.**
 
-One shop calls the same biscuit `parle g`, `parle-g`, `chhota parle`, `पारले जी`,
-`ಪಾರ್ಲೆ-ಜಿ`. Units are worse — packet, box, sack, dozen, kg, gram, litre, piece — and
-conversions are **per-SKU**, not global: a box of Coke is 24, a box of something else isn't.
+Bills use shop shorthand. One supplier writes `Parle G`, another `parle-g`, another
+`चोटा पारले`, another `ಪಾರ್ಲೆ-ಜಿ`. Units are worse — `pkt`, `dzn`, `peti`, `bori`, `nos`,
+`bdl` — and conversions are **per-SKU**, not global: a box of Coke is 24, a box of something
+else isn't.
 
-The failure mode is what makes it dangerous. A wrong match doesn't raise an error. It
-silently writes a correct-looking number against the wrong item, and the books drift quietly
-away from reality. There is no stack trace for "you decremented the wrong SKU three weeks
-ago."
+The failure mode is what makes it dangerous. A wrong match doesn't raise an error. It silently
+writes a correct-looking number against the wrong item, and the books drift quietly away from
+reality. There is no stack trace for "you credited the wrong SKU three weeks ago."
 
-Everything in the design follows from that one fact — which is why the agent treats
-**refusing to act** as a first-class outcome rather than an error.
+So the agent is built around a single principle: **when a wrong guess would corrupt the books,
+ask.** A scan writes nothing until a human approves it, a near-tie is always a question rather
+than a coin-flip, and a photo it can't read gets an honest refusal instead of an invented
+delivery.
 
 ## How the multilingual part works
 
-The extraction model emits item names in **Latin script**, transliterated, whatever script
-came in. So `ಪಾರ್ಲೆ-ಜಿ`, `पारले जी` and `parle g` all reach the resolver as `parle g`.
+The OCR step transliterates item names into **Latin script**, whatever script the bill is
+written in. So `ಪಾರ್ಲೆ-ಜಿ`, `पारले जी` and `Parle G` all reach the resolver as `parle g`.
 
 That one decision keeps the resolver, the alias table and the unit layer completely
-script-agnostic. **One alias row serves all three languages** — a Kannada speaker's answer
-to a clarifying question also teaches the Hindi path.
-
-The alternative would have been embeddings or per-script alias rows, both of which cost
-considerably more.
+script-agnostic. **One alias row serves all three languages.** The alternative — embeddings,
+or per-script alias rows — costs considerably more for no extra capability.
 
 ## Architecture
 
 ```
-intake  ->  transcribe  ->  extract  ->  resolve  ->  write  ->  reply
-voice       Gemma 4         Gemma 4      alias       atomic     in the
-photo       audio /         + JSON       fuzzy       ledger     detected
-text        vision          schema       ask-once    write      language
+  photo  ->  downscale  ->  vision  ->  extract  ->  resolve  ->  CONFIRM  ->  ledger
+             1024px         -> text      -> items     -> sku      human        atomic
+             EXIF fix       lines        per line     or options  approves     write
+             ------------------- no side effects -------------------|
 ```
 
-One model does all of it. `gemma4:latest` reports `completion`, `vision`, `audio`, `tools`
-and `thinking`, which collapses what was going to be a three-model stack into one and keeps
-us inside the GPU's 8 GB.
+Everything left of Confirm is read-only. Abandoning a scan costs nothing. One endpoint writes.
 
-See [`IMPLEMENTATION.md`](./IMPLEMENTATION.md) for the full architecture and module contracts.
+The vision step deliberately produces **plain text**, not final structured data, so the same
+extraction and resolution path serves bills and typed messages alike — and so the transcript
+can be shown to the shopkeeper for correction before anything is committed.
+
+See [`IMPLEMENTATION.md`](./IMPLEMENTATION.md) for module contracts and the hardware limits.
 
 ## The model
 
 | Job | Model | Open weights |
 |---|---|---|
-| Speech → text | `gemma4:latest` (audio input) | Yes |
-| Text → structured JSON + romanisation | `gemma4:latest` (schema-constrained) | Yes |
 | Bill photo → text | `gemma4:latest` (vision) | Yes |
+| Text → structured item + transliteration | `gemma4:latest` (schema-constrained) | Yes |
 
-Served locally through [Ollama](https://ollama.com). Nothing proprietary sits anywhere in
-the pipeline — Gemma 4 is open-weight, which is what Track 2 requires. The same code runs
-against any hosted open-weight endpoint by changing one environment variable.
+One model, both jobs. Served locally through [Ollama](https://ollama.com). Nothing proprietary
+sits anywhere in the pipeline — Gemma 4 is open-weight, which is what Track 2 requires. The
+same code runs against any hosted open-weight endpoint by changing one environment variable.
 
 ## Running it
 
@@ -128,27 +127,30 @@ Reset a dirty demo database with `python -m app.seed --reset`.
 |---|---|
 | Runtime | Python 3.11+, FastAPI, Uvicorn, SQLite |
 | Inference | Ollama, `gemma4:latest` (Q4_K_M, 7.5B) |
+| Image prep | Pillow |
 | Matching | `rapidfuzz` |
 | Frontend | Plain HTML + CSS + vanilla JS, no framework |
 
 ### GPU note
 
-Tested on an RTX 4060 Laptop (8 GB, ~6.9 GB usable). The model is ~6.1 GB at Q4_K_M, so
-**keep `num_ctx` at 4096 and never load a second model alongside it.** See the hardware
-section of `IMPLEMENTATION.md`.
+Tested on an RTX 4060 Laptop (8 GB, ~6.9 GB usable). The model is ~6.1 GB at Q4_K_M, so:
+**keep `num_ctx` at 4096, never load a second model, and downscale every image to 1024 px
+before sending it.** A full-resolution phone photo will blow the context window and make
+inference crawl. See the hardware section of `IMPLEMENTATION.md`.
 
 ## Known limitations
 
-Stated plainly rather than discovered by a judge:
+Stated plainly rather than left for a judge to find:
 
-- **Kannada has no rule-based fallback.** The keyword fallback extractor covers English and
-  Hindi only, so Kannada runs model-only. A Kannada message the model can't parse produces
-  an honest "didn't understand" — never a wrong ledger write.
-- **Kannada speech recognition is unverified.** Kannada *text* works; Kannada *voice*
-  depends on ASR quality we're still evaluating.
+- **Handwritten bills are harder than printed ones.** Legibility, angle and glare all matter.
+  The agent reports low confidence and asks the shopkeeper to check carefully rather than
+  pretending otherwise.
+- **Kannada has no rule-based fallback.** The regex/keyword fallback covers English and Hindi,
+  so Kannada runs model-only. A line it can't parse produces a flagged row for the shopkeeper,
+  never a silent wrong write.
 - **One hardcoded demo shop.** No authentication, no multi-tenancy.
 - **No barcode scanning.** Most kirana stock — loose grains, local brands, repacked goods —
-  isn't barcoded.
+  isn't barcoded, which is why the bill is the better input.
 
 ## Docs
 
@@ -158,15 +160,16 @@ Stated plainly rather than discovered by a judge:
 | [`TASKS.md`](./TASKS.md) | Who does what, hour by hour |
 | [`docs/api-contract.md`](./docs/api-contract.md) | Frozen API shapes — read before coding |
 | [`PROGRESS.md`](./PROGRESS.md) | Live status. Update as you work. |
+| [`tests/corpus.md`](./tests/corpus.md) | Bill test cases and expected results |
 
 ## Team
 
 | | Owns |
 |---|---|
-| Saket Kumar Gupta | Model layer — extraction, fallback, replies |
-| Lokesh Ullangula | Data model, units, ledger, resolver |
-| Ayush Kumar Rai | API, frontend, pipeline orchestration |
-| Ayush Aditya | Language verification, documentation, delivery |
+| Saket Kumar Gupta | Vision, image prep, extraction, fallback |
+| Lokesh Ullangula | Data model, units, ledger, resolver, replies |
+| Ayush Kumar Rai | API, review UI, pipeline orchestration |
+| Ayush Aditya | Bill corpus, language verification, documentation, delivery |
 
 ## Licence
 
