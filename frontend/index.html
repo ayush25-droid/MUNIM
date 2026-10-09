@@ -4,26 +4,47 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Munim</title>
+<link rel="preload" href="fonts/sofia-sans-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header>
-  <h1>Munim</h1>
-  <nav><a href="index.html" class="active">Scan</a><a href="dashboard.html">Stock</a></nav>
+<header class="nav-wrap">
+  <nav class="nav" aria-label="Main">
+    <a class="brand" href="index.html"><span class="brand-dot" aria-hidden="true"></span>Munim</a>
+    <div class="nav-links">
+      <a href="index.html" class="active" aria-current="page">Scan</a>
+      <a href="dashboard.html">Stock</a>
+    </div>
+  </nav>
 </header>
 
 <main>
-  <section id="capture">
-    <label class="scan-btn" for="photo">
-      <span class="scan-icon" aria-hidden="true">&#128247;</span>
-      <span>Scan a bill</span>
-      <small>Take a photo or choose one</small>
-    </label>
-    <input id="photo" type="file" accept="image/*" capture="environment" hidden>
+  <section id="capture" class="hero">
+    <div class="ghost" aria-hidden="true">Munim</div>
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="dot" aria-hidden="true"></span>Scan</p>
+      <h1>Photograph a bill.<br>The stock updates.</h1>
+      <p class="lede">Handwritten or printed, in Kannada, Hindi or English. Nothing is saved until you confirm.</p>
+    </div>
+
+    <div class="orbit-stage">
+      <svg class="orbit" viewBox="0 0 400 260" aria-hidden="true" preserveAspectRatio="none">
+        <path d="M2 210 C 90 250, 190 40, 398 70" fill="none" stroke="#F37338" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <label class="portrait" for="photo">
+        <svg class="cam" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        <span class="portrait-title">Scan a bill</span>
+        <span class="portrait-sub">Take a photo or choose one</span>
+        <span class="satellite" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </label>
+      <input id="photo" type="file" accept="image/*" capture="environment" hidden>
+    </div>
     <div id="status" role="status" aria-live="polite"></div>
   </section>
 
   <section id="review" hidden>
+    <p class="eyebrow"><span class="dot" aria-hidden="true"></span>Review</p>
+    <h2>Check what I read</h2>
     <div id="banner" class="banner" hidden></div>
     <p id="reply" class="reply"></p>
     <div id="warnings" class="warnings"></div>
@@ -35,20 +56,28 @@
     </div>
     <details id="rawbox"><summary>What was read from the photo</summary><pre id="raw"></pre></details>
     <div class="actions">
-      <button id="confirm" class="primary" type="button">Confirm</button>
-      <button id="discard" type="button">Discard</button>
+      <button id="confirm" class="btn primary" type="button">Confirm</button>
+      <button id="discard" class="btn secondary" type="button">Discard</button>
     </div>
     <p id="reviewhint" class="hint"></p>
   </section>
 
   <section id="result" hidden>
+    <p class="eyebrow"><span class="dot" aria-hidden="true"></span>Saved</p>
     <h2>Done</h2>
-    <p id="result-reply"></p>
+    <p id="result-reply" class="lede"></p>
     <ul id="result-actions"></ul>
     <div id="learned" class="learned" hidden></div>
-    <button id="again" class="primary" type="button">Scan another bill</button>
+    <button id="again" class="btn primary" type="button">Scan another bill</button>
   </section>
 </main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <h2>Reads the bill. Keeps the books.</h2>
+    <p>Munim asks when a wrong guess would corrupt your stock, and refuses a photo it can't read. Open source, MIT licence.</p>
+  </div>
+</footer>
 <script src="app.js"></script>
 </body>
 </html>

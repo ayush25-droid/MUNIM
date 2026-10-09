@@ -4,15 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Munim: Stock</title>
+<link rel="preload" href="fonts/sofia-sans-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header>
-  <h1>Munim</h1>
-  <nav><a href="index.html">Scan</a><a href="dashboard.html" class="active">Stock</a></nav>
+<header class="nav-wrap">
+  <nav class="nav" aria-label="Main">
+    <a class="brand" href="index.html"><span class="brand-dot" aria-hidden="true"></span>Munim</a>
+    <div class="nav-links">
+      <a href="index.html">Scan</a>
+      <a href="dashboard.html" class="active" aria-current="page">Stock</a>
+    </div>
+  </nav>
 </header>
+
 <main>
-  <div id="status" role="status"></div>
+  <section class="page-head">
+    <p class="eyebrow"><span class="dot" aria-hidden="true"></span>Stock</p>
+    <h1 class="h1-sm">What's on the shelf</h1>
+    <p id="summary" class="lede"></p>
+  </section>
+  <div id="status" role="status" aria-live="polite"></div>
   <div class="table-wrap">
     <table id="stock">
       <thead><tr><th>Item</th><th class="num">Qty</th><th>Unit</th><th class="num">Cost &#8377;</th><th class="num">Days left</th></tr></thead>
@@ -20,6 +32,13 @@
     </table>
   </div>
 </main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <h2>Reads the bill. Keeps the books.</h2>
+    <p>Munim asks when a wrong guess would corrupt your stock, and refuses a photo it can't read. Open source, MIT licence.</p>
+  </div>
+</footer>
 <script src="dashboard.js"></script>
 </body>
 </html>

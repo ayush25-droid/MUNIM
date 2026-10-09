@@ -30,7 +30,7 @@ function setStatus(msg, isError) {
 }
 
 function show(which) {
-  $("capture").hidden = which === "result";
+  $("capture").hidden = which !== "capture";
   $("review").hidden = which !== "review";
   $("result").hidden = which !== "result";
 }
@@ -70,7 +70,7 @@ $("photo").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   e.target.value = ""; // allow re-picking the same file
   if (!file) return;
-  document.querySelector(".scan-btn").classList.add("busy");
+  document.querySelector(".portrait").classList.add("busy");
   setStatus("Preparing photo…");
   try {
     const blob = await downscale(file);
@@ -86,7 +86,7 @@ $("photo").addEventListener("change", async (e) => {
   } catch (err) {
     setStatus(err.message, true);
   } finally {
-    document.querySelector(".scan-btn").classList.remove("busy");
+    document.querySelector(".portrait").classList.remove("busy");
   }
 });
 
@@ -135,12 +135,14 @@ function renderReview(s) {
     banner.textContent = "Couldn't read this photo as a bill. Nothing was added. Try again in good light.";
     banner.hidden = false;
     $("items").closest(".table-wrap").hidden = true;
-    document.querySelector("#review .actions").hidden = true;
+    $("confirm").hidden = true;
+    $("discard").textContent = "Try another photo";
     $("reviewhint").textContent = "";
     return;
   }
   $("items").closest(".table-wrap").hidden = false;
-  document.querySelector("#review .actions").hidden = false;
+  $("confirm").hidden = false;
+  $("discard").textContent = "Discard";
   if (s.confidence === "low") {
     banner.className = "banner low";
     banner.textContent = "Hard to read. Check every line carefully before confirming.";
@@ -163,7 +165,7 @@ function renderReview(s) {
     tbody.appendChild(tr);
   }
   updateConfirm();
-  $("capture").scrollIntoView?.({ behavior: "smooth" });
+  $("review").scrollIntoView?.({ behavior: "smooth" });
 }
 
 $("items").addEventListener("change", onRowChange);
@@ -257,6 +259,7 @@ $("again").addEventListener("click", reset);
 
 function renderResult(res) {
   show("result");
+  window.scrollTo({ top: 0 });
   $("result-reply").textContent = res.reply || "";
   $("result-actions").innerHTML = (res.actions || []).map((a) =>
     `<li>${esc(a.sku_name)}: +${esc(a.qty)} ${esc(a.unit)} &rarr; now ${esc(a.new_qty)}</li>`).join("");
@@ -275,4 +278,5 @@ function reset() {
   $("items").querySelector("tbody").innerHTML = "";
   setStatus("");
   show("capture");
+  window.scrollTo({ top: 0 });
 }

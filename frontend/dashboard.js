@@ -12,12 +12,15 @@ async function load() {
     if (!r.ok) throw new Error(data.error || `Server error (${r.status})`);
     document.querySelector("#stock tbody").innerHTML = data.items.map((i) => `
       <tr class="${i.low ? "low-row" : ""}">
-        <td>${esc(i.name)}</td>
-        <td class="num">${esc(i.qty)}</td>
-        <td>${esc(i.unit)}</td>
-        <td class="num">${esc((i.cost_per_unit / 100).toFixed(2))}</td>
-        <td class="num">${i.days_of_cover == null ? "&ndash;" : esc(i.days_of_cover)}</td>
+        <td>${esc(i.name)}${i.low ? '<span class="chip-low">Running low</span>' : ""}</td>
+        <td class="num" data-label="Qty">${esc(i.qty)}</td>
+        <td data-label="Unit">${esc(i.unit)}</td>
+        <td class="num" data-label="Cost &#8377;">${esc((i.cost_per_unit / 100).toFixed(2))}</td>
+        <td class="num" data-label="Days left">${i.days_of_cover == null ? "&ndash;" : esc(i.days_of_cover)}</td>
       </tr>`).join("");
+    const low = data.items.filter((i) => i.low).length;
+    document.getElementById("summary").textContent =
+      `${data.items.length} items` + (low ? `, ${low} running low.` : ", none running low.");
     status.textContent = "";
   } catch (err) {
     status.textContent = err.message || "Cannot reach the server.";
