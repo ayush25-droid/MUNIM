@@ -29,7 +29,10 @@ RNG_SEED = 42  # reproducible demo data run to run
 SKUS: list[tuple[str, str, float, int, int, dict, float]] = [
     ("Parle-G Biscuit", "packet", 40, 480, 600, {}, 6),
     ("Good Day Biscuit", "packet", 25, 900, 1100, {}, 3),
-    ("Maggi Noodles 70g", "packet", 30, 1200, 1400, {}, 4),
+    # Low starting stock against its own sell-through on purpose -- this and Amul Milk
+    # below are the demo's "before" low-stock rows (Saket found the seeded shop had
+    # none, so the dashboard showed nothing red for the "before" screenshot).
+    ("Maggi Noodles 70g", "packet", 5, 1200, 1400, {}, 4),
     ("Maggi Masala 100g", "piece", 10, 9500, 11000, {}, 0.5),
     ("Aashirvaad Atta", "kg", 60, 4200, 4800, {}, 5),
     ("Basmati Rice", "kg", 50, 8500, 9500, {}, 3),
@@ -38,7 +41,7 @@ SKUS: list[tuple[str, str, float, int, int, dict, float]] = [
     ("Tata Salt", "packet", 20, 2000, 2500, {}, 1.5),
     ("Fortune Sunflower Oil 1L", "litre", 25, 13000, 14500, {}, 2),
     ("Amul Butter 100g", "packet", 18, 5200, 6000, {}, 1.5),
-    ("Amul Milk 500ml", "litre", 22, 2600, 3000, {}, 4),
+    ("Amul Milk 500ml", "litre", 3, 2600, 3000, {}, 4),
     ("Red Label Tea 250g", "packet", 15, 9800, 11000, {}, 1),
     ("Surf Excel 1kg", "packet", 12, 14500, 16500, {}, 1),
     ("Colgate Toothpaste", "piece", 20, 4500, 5500, {}, 1.5),

@@ -30,13 +30,31 @@ LINE_PROMPT_TEMPLATE = """Extract one item from this single bill line:
 
 "{line}"
 
+A bill line has this shape: <qty> <unit word> <product name, maybe with its own size/weight> <price>.
+Extract the unit word into "unit" FIRST -- it's always the word immediately after the
+quantity (e.g. "bori" in "5 bori aata", "pc" in "5 pc Amul Butter 500g"). Whatever number
+or weight appears AFTER the product name (like "500g" in "Amul Butter 500g") is part of
+the product's own name, not a second unit -- never let it replace or merge with "unit".
+
 Return a JSON object:
-- "name": the item name, in LATIN SCRIPT, lowercase. If the line already gives a
-  transliterated name, keep it as-is -- don't translate the meaning, just lowercase it.
+- "name": the item name, in LATIN SCRIPT, lowercase, with the leading quantity and unit
+  word removed. If the line already gives a transliterated name, keep it as-is -- don't
+  translate the meaning, just lowercase it. KEEP a size/weight ONLY when it is fused
+  directly onto a word with no space, right after the product name, with its own unit
+  suffix attached (e.g. "500g", "1L", "250ml" in "Amul Butter 500g") -- that's what tells
+  two sizes of the same product apart, so dropping it is how "Amul Butter 500g" gets
+  silently matched to "Amul Butter 100g". A bare number with nothing attached to it (no
+  "g"/"ml"/"l"/"kg" suffix) is NEVER part of the name -- it is either the leading
+  quantity (already removed) or the trailing price (goes in "price_paise", never in
+  "name"). Examples: "5 bori aata 4600" -> unit "sack", name "aata" (no size suffix
+  anywhere, "4600" is just the price). "1 ctn amul milk 720" -> unit "box", name "amul
+  milk" (no size suffix, "720" is just the price). "5 pc Amul Butter 500g 270.00" -> unit
+  "piece", name "amul butter 500g" (500g has the "g" suffix fused on, so it stays).
 - "qty": the quantity, as a number.
 - "unit": the unit of measure. It MUST be exactly one of: {units}. Pick the closest
-  match for whatever unit word appears (e.g. "pkt"/"pack" -> "packet", "dzn" -> "dozen",
-  "nos"/"pc" -> "piece"). If no unit is stated at all, use "piece".
+  match for the unit word right after the quantity (e.g. "pkt"/"pack" -> "packet", "dzn"
+  -> "dozen", "nos"/"pc" -> "piece", "bori" -> "sack"). If no unit is stated at all, use
+  "piece".
 - "price_paise": the price as an integer number of paise (rupees * 100). If the line
   gives rupees, multiply by 100. If no price is stated, use 0.
 
@@ -85,7 +103,8 @@ Classify it and extract any items:
   When in doubt between "query" and a stock-changing intent, prefer "query" -- a missed
   update can be re-sent, but a phantom stock write corrupts the books.
 - "lang": the dominant language of the message -- "en", "hi", or "kn".
-- "items": a list of items mentioned, each with "name" (Latin script, lowercase),
+- "items": a list of items mentioned, each with "name" (Latin script, lowercase, keeping
+  any size/weight/pack descriptor that's part of the product name -- e.g. "500g", "1l"),
   "qty", "unit" (exactly one of: {units}), and "price_paise" (integer paise, 0 if not
   stated). Empty list if intent is "query" and no concrete item/quantity is being
   reported, or if no item is mentioned at all.

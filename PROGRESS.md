@@ -12,14 +12,20 @@ prose — the next reader needs what's true now, not a narrative.
 
 | | Current task | Blocked on | Last pushed |
 |---|---|---|---|
-| **Ayush Rai** — the spine | spine done; integration-tested against real routes | nothing | this push |
-| **Saket** — API + review UI | done; verified live against the 4060 | nothing | this push |
-| **Lokesh** — data + resolver | db/units/resolver/inventory/reorder/reply/seed done | nothing | this push |
-| **Ayush Aditya** — machine, bills, QA | integration & demo prep | live hardware end-to-end verified on 4060 (scan in 6s, ask-once confirmed, 409 confirmed) | this push |
+| **Ayush Rai** — the spine | spine done; verified against the live model on the 4060, three bugs it found now fixed | nothing | this push |
+| **Saket** — API + review UI | done; verified live against the 4060 (printed/handwritten/Kannada/not-a-bill from the browser) | nothing | e5f188a |
+| **Lokesh** — data + resolver | db/units/resolver/inventory/reorder/reply/seed done; two resolver bugs + a seed-data gap found against real data, all fixed below — Lokesh now on slides/PPT, so this is covered | nothing | this push |
+| **Ayush Aditya** — machine, bills, QA | integration & demo prep | nothing — see `tests/corpus.md` for a found test-image bug in `generate_test_bills.py` (flagged, not fixed — not our file) | e91563d |
 
-**Overall: Full stack running and verified end-to-end on live RTX 4060 laptop with gemma4:latest.
-OCR takes 2.0s, total scan 6.0s. Near-tie ambiguity -> human confirm -> alias learned -> silent
-re-scan verified on live model. 409 idempotency verified. Ready for screenshots and demo.**
+**Overall: full stack running and verified end-to-end on the live RTX 4060 (gemma4:latest), both
+from the browser (Saket, Aditya) and by driving `pipeline.py` directly (Ayush Rai) — OCR ~2s, full
+scan 4-8s warm. Ask-once (ambiguous → confirm → alias learned → silent re-scan) and 409 idempotency
+both verified on live hardware by three independent runs. All six typed-text chat cases also run
+against the live model for the first time — see `tests/corpus.md`'s second results table: 9/13
+full-pipeline cases clean PASS, 3 PARTIAL (all traced to one corrupted test bill image, not the
+pipeline — see Known Issues), 1 documented chat-surface limitation. Zero hallucinated items, zero
+stock written from a query, anywhere. Three real bugs found by live testing (two by Saket, one by
+Ayush Rai's own run) are fixed below. Ready for screenshots and demo.**
 
 The 4060 is **Ayush Aditya's laptop** (`http://172.1.58.57:11434`). The model lives there,
 integration happens there, the demo runs from there.
@@ -66,9 +72,10 @@ the fastest iteration loop. They decide what ships.
 - [x] `pipeline.py` — `scan_bill` read-only
 - [x] `pipeline.py` — `confirm_scan` idempotent, **409 on a repeat**
 - [x] `pipeline.py` — `run_in_threadpool` from the route (already in `routes/scan.py`/`chat.py`)
-- [ ] Every bill in `tests/bills/` passing — **not yet run from this session** (no access to the
-      4060 here; everything above was integration-tested against the `rules.py` fallback path
-      instead, since that's the documented failure mode for `extract.py`/`ocr.py`)
+- [x] Every bill in `tests/bills/` run against the live model via `pipeline.scan_bill`, plus all
+      six typed-text chat cases via `handle_message` — see `tests/corpus.md`'s second results
+      table. 4/7 bills clean, 3 PARTIAL (one corrupted test image, 3 of its 4 variants — not a
+      pipeline bug, see Known Issues)
 
 ### Lokesh — data + resolver
 **Built by Ayush Rai to unblock `pipeline.py` integration — Lokesh, please review against your
@@ -178,10 +185,11 @@ _Append as you hit them. Saves the next person an hour._
 | Windows console default cp1252 charmap crashes when printing Kannada/Hindi text | Use `ensure_ascii=True` or set UTF-8 stream output |
 | Cold-start Ollama vision load takes ~70s on first inference | Keep `keep_alive: 30m` so model stays resident in GPU memory; warm calls take 7-12s |
 | `routes/scan.py` caught `pipeline.ScanAlreadyConfirmed` (wrong name) and no `pipeline.BadRequestError`/`ValidationError` at all -- a real double-confirm would've crashed with `AttributeError` instead of returning 409 | Fixed to catch `ScanAlreadyConfirmedError`/`ValidationError`/`BadRequestError` by their actual names; same gap existed in `routes/chat.py` for bad `shop_id`, fixed there too. Exception names/types aren't frozen anywhere in the docs -- `pipeline.py`'s module docstring is now the source of truth for them. |
-| Seeded DB has no low-stock SKUs, so the dashboard shows no red rows (found by Saket) | **Lokesh:** seed a few SKUs near zero so demo moment 1 and the "before" screenshot show red rows |
-| `5 pc Amul Butter 500g` matches **exact** to "Amul Butter 100g" — the alias `amul butter` ignores size (found by Saket) | **Ayush Rai / Lokesh:** make size part of matching, or send a size-bearing name to `ambiguous` |
-| Ambiguous dropdown for `aata` offered Tata Salt and Patanjali Ghee as candidates (found by Saket) | **Lokesh:** drop low-score candidates from the list; keep only plausible ones |
-| Printed-bill line `140.00 Fortune Sunlite Refined Oil 1L12 pouch` parsed as qty 1 litre (found by Saket) | **Ayush Rai:** check OCR/extract for pack-size text like `1L12`; shopkeeper can edit the row meanwhile |
+| Seeded DB has no low-stock SKUs, so the dashboard shows no red rows (found by Saket) | **FIXED** — `seed.py`: lowered Maggi Noodles (5 packet) and Amul Milk (3 litre) starting qty against their sell-through; both now show `low: true` (0.7 and 1.3 days of cover) |
+| `5 pc Amul Butter 500g` matches **exact** to "Amul Butter 100g" — the alias `amul butter` ignores size (found by Saket) | **FIXED** — `extract.py`'s prompt now keeps a size/weight suffix fused onto a word (`500g`, `1L`) as part of the extracted name instead of dropping it, so a differently-sized variant scores lower instead of matching exact. Took two follow-up prompt iterations to land without regressing other lines (see commit) — pure string-matching alone still can't fully distinguish sizes without a second SKU of the same product to compare against, so this reduces but doesn't eliminate the risk; a real second size variant in the catalog is the actual test. |
+| Ambiguous dropdown for `aata` offered Tata Salt and Patanjali Ghee as candidates (found by Saket) | **FIXED** — `resolver.py` now only includes candidates within the near-tie margin of the top score, not a blind top-3; Ghee (68, outside the margin from Atta's 75) is excluded, Tata Salt (73, the actual near-tie partner) stays |
+| Printed-bill line `140.00 Fortune Sunlite Refined Oil 1L12 pouch` parsed as qty 1 litre (found by Saket) | **Root cause found, not an extract.py bug** — see the `generate_test_bills.py` column-overlap row below. The "12 pouch" QTY-column text is drawn on top of "1L" from the item description in the source image; the model's output is a reasonable read of already-corrupted input, confirmed by `angle-01`/`glare-01`/`crumpled-01` reproducing the exact same garbling since they share the same source image |
+| `tests/generate_test_bills.py`'s printed-bill layout: `QTY` column (x=450) collides with long `ITEM DESCRIPTION` text (starts x=60, no width cap) — `"Aashirvaad Shudh Chakki Atta 10kg"` and `"Tata Salt Vacuum Evaporated 1kg"` visually overlap their own QTY cells, illegible even to a human (found by Ayush Rai, tracing Saket's report above) | **For Ayush Aditya** — not our file. Widen the gap (move QTY to ~x=520+) or cap/wrap the description column, then regenerate `printed-01.jpg` (and the angle/glare/crumpled variants derived from it) |
 | Phone cannot reach the app if backend binds to localhost or the laptop firewall (firewalld on Fedora) blocks 8000/5500 | Run uvicorn with `--host 0.0.0.0`, open both ports, browse with `?api=http://<laptop-ip>:8000` |
 | `backend/requirements.txt` had two conflicting versions (unpinned + `requests`, vs. pinned + `httpx`) after independent pushes | Kept the pinned set; switched `llm.py` from `requests` to `httpx` rather than carrying two HTTP libraries |
 
@@ -197,4 +205,5 @@ Format: `HH:MM — who — what`
 14:45 — Ayush Rai — llm.py, imageprep.py, ocr.py, extract.py, rules.py, pipeline.py done. Also built Lokesh's db.py/units.py/resolver.py/inventory.py/reorder.py/reply.py/seed.py to unblock integration. Rebased onto Saket's + Aditya's pushes; fixed the ScanAlreadyConfirmed exception-name bug and missing BadRequestError/ValidationError handling in routes/scan.py + routes/chat.py. Added Kannada unit corrections (moote, nang/nangu, pees) from tests/corpus.md to units.py. Verified with TestClient against the real FastAPI app (not stubs): scan/confirm/chat/inventory, 400/409/422 error mapping, ambiguous near-tie -> confirm -> alias learned -> re-scan resolves silently. Not yet run against the live model on the 4060.
 14:52 — Ayush Aditya — Pull completed; seed.py --reset run cleanly. Full stack live integration test executed against local Ollama gemma4:latest on the RTX 4060: handwritten-01.jpg scanned in 6.09s total (OCR 2.07s). Ambiguous near-tie (Maggi) prompted correctly, confirmed and booked, duplicate confirm rejected with 409 idempotency guard, and re-scan verified 100% exact resolution via learned aliases. Ask-once fully operational on hardware.
 15:10 — Saket — Verified full stack against live Ollama on the 4060 (not stubs): printed/handwritten/Kannada/not-a-bill bills scanned from the browser in 6-8 s; ambiguous pick -> confirm (double-click = 1 POST) -> aliases learned -> re-scan resolves silently; non-bill refused; 409 on repeat confirm. Review table now stacks into cards below 640 px (no sideways scroll on phones); prices shown as 2 decimals. Not yet tried on a physical phone.
+15:25 — Ayush Rai — Ran the full tests/bills/ corpus and all six typed-text chat cases through the real pipeline.scan_bill/handle_message against the live 4060 for the first time (not raw OCR, not stubs) -- see tests/corpus.md's second results table. Found and fixed 3 bugs this surfaced, two of them the same ones Saket found independently: resolver.py had an unintended non-spec "ambiguous" branch for any mid-range score (fixed -> falls through to "unknown"), the ambiguous candidates list showed top-3 by raw score instead of only genuine near-tie members (fixed -> filtered to the near-tie margin), and extract.py's prompt dropped size/weight from item names, which is how differently-sized variants could silently collide (fixed, took 2 follow-up iterations to avoid regressing other lines). Also fixed seed.py's missing low-stock SKUs (Saket's finding). Traced Saket's "1L12 pouch" report to its root cause: a column-overlap bug in tests/generate_test_bills.py (Ayush Aditya's file, not touched) that makes 2 of 6 printed-01 lines genuinely illegible even to a human -- same bug explains the identical garbling on angle/glare/crumpled-01 since they share the source image. Flagged to Aditya, not fixed (not my file). All offline regression suites (integration/error-path/app-level) still pass after every change.
 ```

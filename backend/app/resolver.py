@@ -61,15 +61,27 @@ def resolve(shop_id: int, name: str) -> dict:
     # Checked before the plain fuzzy-threshold branch deliberately: a near-tie
     # overrides even a very high top score (see module docstring).
     if second is not None and (top["score"] - second["score"]) <= NEAR_TIE_MARGIN:
-        return _result("ambiguous", candidates=candidates[:MAX_CANDIDATES])
+        # Only show candidates genuinely competing with the top score, not whatever
+        # happened to be 3rd by raw rank -- real-model testing surfaced "aata" coming
+        # back ambiguous against Aashirvaad Atta (75) and Tata Salt (73, the actual
+        # near-tie partner) *and* Patanjali Ghee (68), which isn't part of the tie at
+        # all and just adds a confusing third option to the dropdown.
+        relevant = [c for c in candidates if c["score"] >= top["score"] - NEAR_TIE_MARGIN]
+        return _result("ambiguous", candidates=relevant[:MAX_CANDIDATES])
 
     if top["score"] >= FUZZY_THRESHOLD:
         return _result("fuzzy", sku_id=top["sku_id"])
 
-    # Close-ish (between UNKNOWN_THRESHOLD and FUZZY_THRESHOLD, clear of a near-tie)
-    # but not confident enough to pre-tick -- still worth putting in front of the
-    # shopkeeper as options rather than silently filing it under "unknown".
-    return _result("ambiguous", candidates=candidates[:MAX_CANDIDATES])
+    # Close-ish (between UNKNOWN_THRESHOLD and FUZZY_THRESHOLD) but not a near-tie and
+    # not confident enough to pre-tick -- this used to come back "ambiguous" with
+    # candidates, on the theory that showing options beats silently filing it under
+    # "unknown". Real-model testing against tests/bills/kannada-01.jpg proved that
+    # wrong: a genuinely uncatalogued item ("pav bhaji", not one of the 30 seeded
+    # SKUs) scored 60 against "Red Label Tea" with nothing else close, and came back
+    # a nonsense "ambiguous" dropdown instead of "unknown" + create-new. The frozen
+    # four-state contract (IMPLEMENTATION.md) doesn't have a fifth "maybe" state
+    # either -- outside a near-tie, nothing-close is exactly what "unknown" means.
+    return _result("unknown")
 
 
 def learn_alias(shop_id: int, text: str, sku_id: int) -> None:
