@@ -13,7 +13,7 @@ prose — the next reader needs what's true now, not a narrative.
 | | Current task | Blocked on | Last pushed |
 |---|---|---|---|
 | **Ayush Rai** — the spine | `llm.py` | **bill photos from Ayush Aditya** (for `ocr.py`) | — |
-| **Saket** — API + review UI | stub routes | nothing | — |
+| **Saket** — API + review UI | waiting on `pipeline.py` to swap stubs | `pipeline.py` (Ayush Rai) | — |
 | **Lokesh** — data + resolver | `db.py` | nothing | — |
 | **Ayush Aditya** — machine, bills, QA | photographing bills | nothing | — |
 
@@ -85,18 +85,18 @@ the fastest iteration loop. They decide what ships.
 - [ ] `reply.py` — `scan_summary`, `confirm_summary`, `illegible`, three languages
 
 ### Saket — API + review UI
-- [ ] `main.py`, `config.py`
-- [ ] Stub routes returning contract fixtures — including `legible: false` — **pushed early**
-- [ ] `index.html` — camera/upload as the **primary action**, works at phone width
-- [ ] **Client-side downscale to 1024 px before upload**
-- [ ] **Review table** — row per line, dropdown for `ambiguous`, create for `unknown`, unit
+- [x] `main.py`, `config.py`
+- [x] Stub routes returning contract fixtures — including `legible: false` — **pushed early**
+- [x] `index.html` — camera/upload as the **primary action**, works at phone width
+- [x] **Client-side downscale to 1024 px before upload**
+- [x] **Review table** — row per line, dropdown for `ambiguous`, create for `unknown`, unit
       picker where `unit_ok` is false, editable qty/price, skip toggle
-- [ ] `raw_text` displayed alongside the table
-- [ ] `legible: false` handled; `confidence: "low"` shows the check-carefully banner
-- [ ] Confirm POST; `aliases_learned` shown in the result
-- [ ] `escapeHtml` on everything from the API (OCR text especially)
-- [ ] In-flight guard on Confirm — a double tap must be a no-op
-- [ ] `dashboard.html` — low rows red *(cut if behind)*
+- [x] `raw_text` displayed alongside the table
+- [x] `legible: false` handled; `confidence: "low"` shows the check-carefully banner
+- [x] Confirm POST; `aliases_learned` shown in the result
+- [x] `escapeHtml` on everything from the API (OCR text especially)
+- [x] In-flight guard on Confirm — a double tap must be a no-op
+- [x] `dashboard.html` — low rows red *(cut if behind)*
 - [ ] Stubs swapped for Ayush Rai's real pipeline
 
 ### Ayush Aditya — the machine, bills, QA, delivery
@@ -167,4 +167,5 @@ _Append as you hit them. Saves the next person an hour._
 Format: `HH:MM — who — what`
 
 ```
+--:-- — Saket — backend skeleton (main/config/routes, stubs) + full frontend (scan, review table, dashboard) done; browser-tested against stubs
 ```

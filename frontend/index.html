@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Munim</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <h1>Munim</h1>
+  <nav><a href="index.html" class="active">Scan</a><a href="dashboard.html">Stock</a></nav>
+</header>
+
+<main>
+  <section id="capture">
+    <label class="scan-btn" for="photo">
+      <span class="scan-icon" aria-hidden="true">&#128247;</span>
+      <span>Scan a bill</span>
+      <small>Take a photo or choose one</small>
+    </label>
+    <input id="photo" type="file" accept="image/*" capture="environment" hidden>
+    <div id="status" role="status" aria-live="polite"></div>
+  </section>
+
+  <section id="review" hidden>
+    <div id="banner" class="banner" hidden></div>
+    <p id="reply" class="reply"></p>
+    <div id="warnings" class="warnings"></div>
+    <div class="table-wrap">
+      <table id="items">
+        <thead><tr><th>Bill line</th><th>Item</th><th>Qty</th><th>Unit</th><th>Price &#8377;</th><th>Skip</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <details id="rawbox"><summary>What was read from the photo</summary><pre id="raw"></pre></details>
+    <div class="actions">
+      <button id="confirm" class="primary" type="button">Confirm</button>
+      <button id="discard" type="button">Discard</button>
+    </div>
+    <p id="reviewhint" class="hint"></p>
+  </section>
+
+  <section id="result" hidden>
+    <h2>Done</h2>
+    <p id="result-reply"></p>
+    <ul id="result-actions"></ul>
+    <div id="learned" class="learned" hidden></div>
+    <button id="again" class="primary" type="button">Scan another bill</button>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
