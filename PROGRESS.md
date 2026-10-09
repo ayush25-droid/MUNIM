@@ -12,18 +12,22 @@ prose — the next reader needs what's true now, not a narrative.
 
 | | Current task | Blocked on | Last pushed |
 |---|---|---|---|
-| **Saket** — vision + extraction | the T+0:20 gate | **bill photos from Ayush Aditya** | — |
+| **Ayush Rai** — the spine | `llm.py` | **bill photos from Ayush Aditya** (for `ocr.py`) | — |
+| **Saket** — API + review UI | stub routes | nothing | — |
 | **Lokesh** — data + resolver | `db.py` | nothing | — |
-| **Ayush Rai** — API + review UI | stub routes | nothing | — |
-| **Ayush Aditya** — bills + delivery | photographing bills | nothing | — |
+| **Ayush Aditya** — machine, bills, QA | photographing bills | nothing | — |
 
 **Overall: T+0:00. Nothing built yet.**
+
+The 4060 is **Ayush Aditya's laptop** (`http://172.1.58.57:11434`). The model lives there,
+integration happens there, the demo runs from there.
 
 ---
 
 ## The gate — fill this in first
 
-Saket answers these before anything else gets built. They decide what ships.
+**Ayush Aditya** answers these before anything else gets built — it's his machine, so he has
+the fastest iteration loop. They decide what ships.
 
 | Test | Result | Decision |
 |---|---|---|
@@ -47,8 +51,7 @@ Saket answers these before anything else gets built. They decide what ships.
 - [ ] **Two bill photos in `tests/bills/`** (printed + handwritten) — unblocks Saket
 - [ ] Cut list agreed out loud
 
-### Saket — vision + extraction
-- [ ] The gate, results posted above
+### Ayush Rai — the spine
 - [ ] `llm.py` — `generate()`, `think: false`, `num_ctx: 4096`, `keep_alive: "30m"`
 - [ ] `llm.py` — longer timeout for image calls than text
 - [ ] `imageprep.py` — **EXIF rotate + downscale to 1024 px** (write this before `ocr.py`)
@@ -58,6 +61,9 @@ Saket answers these before anything else gets built. They decide what ships.
 - [ ] `extract.py` — `extract_line()`, pinned schema with unit **enum**
 - [ ] `extract.py` — `extract_message()` for the typed-text path
 - [ ] `rules.py` — regex fallback for bill lines, wired as `extract`'s except path
+- [ ] `pipeline.py` — `scan_bill` read-only
+- [ ] `pipeline.py` — `confirm_scan` idempotent, **409 on a repeat**
+- [ ] `pipeline.py` — `run_in_threadpool` from the route
 - [ ] Every bill in `tests/bills/` passing
 
 ### Lokesh — data + resolver
@@ -78,7 +84,7 @@ Saket answers these before anything else gets built. They decide what ships.
 - [ ] `reorder.py` — days of cover
 - [ ] `reply.py` — `scan_summary`, `confirm_summary`, `illegible`, three languages
 
-### Ayush Rai — API + review UI
+### Saket — API + review UI
 - [ ] `main.py`, `config.py`
 - [ ] Stub routes returning contract fixtures — including `legible: false` — **pushed early**
 - [ ] `index.html` — camera/upload as the **primary action**, works at phone width
@@ -89,13 +95,15 @@ Saket answers these before anything else gets built. They decide what ships.
 - [ ] `legible: false` handled; `confidence: "low"` shows the check-carefully banner
 - [ ] Confirm POST; `aliases_learned` shown in the result
 - [ ] `escapeHtml` on everything from the API (OCR text especially)
-- [ ] `pipeline.py` — `scan_bill` read-only
-- [ ] `pipeline.py` — `confirm_scan` idempotent, **409 on a repeat**
-- [ ] `pipeline.py` — `run_in_threadpool` from the route
+- [ ] In-flight guard on Confirm — a double tap must be a no-op
 - [ ] `dashboard.html` — low rows red *(cut if behind)*
-- [ ] Stubs swapped for the real pipeline
+- [ ] Stubs swapped for Ayush Rai's real pipeline
 
-### Ayush Aditya — bills + delivery
+### Ayush Aditya — the machine, bills, QA, delivery
+- [ ] `OLLAMA_MAX_LOADED_MODELS=1` set, `ollama list` confirms `gemma4:latest`
+- [ ] **The gate run, results posted above**
+- [ ] Ollama reachable from all three other machines throughout
+- [ ] **Full stack running on this laptop by T+1:30** (clone, backend, seed, frontend)
 - [ ] **Printed bill photo** in `tests/bills/`
 - [ ] **Handwritten bill photo** in `tests/bills/`
 - [ ] Bad angle, glare, crumpled

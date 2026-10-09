@@ -166,10 +166,10 @@ Stated plainly rather than left for a judge to find:
 
 | | Owns |
 |---|---|
-| Saket Kumar Gupta | Vision, image prep, extraction, fallback |
+| Ayush Kumar Rai | Vision, image prep, extraction, fallback, pipeline orchestration |
+| Saket Kumar Gupta | API routes and the review UI |
 | Lokesh Ullangula | Data model, units, ledger, resolver, replies |
-| Ayush Kumar Rai | API, review UI, pipeline orchestration |
-| Ayush Aditya | Bill corpus, language verification, documentation, delivery |
+| Ayush Aditya | Inference host, bill corpus, language verification, QA, delivery |
 
 ## Licence
 

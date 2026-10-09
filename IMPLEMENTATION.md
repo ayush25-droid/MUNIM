@@ -50,7 +50,9 @@ Three reasons this beats one-shot structured vision:
 
 ## Hardware limit — the binding constraint
 
-One inference box: the RTX 4060 laptop at `http://172.1.58.57:11434`.
+One inference box: **Ayush Aditya's RTX 4060 laptop** at `http://172.1.58.57:11434`. The
+model lives there, final integration happens there, and the demo runs from there. Everyone
+else develops against it over the LAN.
 
 ```
 Total VRAM                      8.0 GiB
@@ -107,19 +109,19 @@ MUNIM/
     requirements.txt
     app/
       __init__.py
-      main.py           FastAPI app, router includes        -> Ayush Rai
-      config.py         env vars, logging helper            -> Ayush Rai
+      llm.py            Ollama adapter                      -> Ayush Rai
+      imageprep.py      downscale, EXIF rotate, guard       -> Ayush Rai
+      ocr.py            bill photo -> text lines            -> Ayush Rai
+      extract.py        text line -> structured item        -> Ayush Rai
+      rules.py          regex/keyword fallback extractor    -> Ayush Rai
       pipeline.py       scan + confirm orchestration        -> Ayush Rai
-      routes/
-        scan.py         POST /api/scan, /api/scan/confirm   -> Ayush Rai
-        chat.py         POST /api/chat (typed text)         -> Ayush Rai
-        inventory.py    GET  /api/inventory                 -> Ayush Rai
 
-      llm.py            Ollama adapter                      -> Saket
-      ocr.py            bill photo -> text lines            -> Saket
-      imageprep.py      downscale, EXIF rotate, guard       -> Saket
-      extract.py        text line -> structured item        -> Saket
-      rules.py          regex/keyword fallback extractor    -> Saket
+      main.py           FastAPI app, router includes        -> Saket
+      config.py         env vars, logging helper            -> Saket
+      routes/
+        scan.py         POST /api/scan, /api/scan/confirm   -> Saket
+        chat.py         POST /api/chat (typed text)         -> Saket
+        inventory.py    GET  /api/inventory                 -> Saket
 
       db.py             schema + connection                 -> Lokesh
       seed.py           demo shop, SKUs, aliases, history   -> Lokesh
@@ -130,8 +132,8 @@ MUNIM/
       reply.py          reply text in en / hi / kn          -> Lokesh
 
   frontend/
-    index.html  app.js  styles.css        scan + review UI  -> Ayush Rai
-    dashboard.html  dashboard.js                            -> Ayush Rai
+    index.html  app.js  styles.css        scan + review UI  -> Saket
+    dashboard.html  dashboard.js                            -> Saket
 
   tests/
     corpus.md         bill + text test cases                -> Ayush Aditya
@@ -390,19 +392,22 @@ blocking HTTP call inline in an async route stalls every other request.
 ## Build order
 
 ```
+llm.py -> imageprep.py -> ocr.py -> extract.py -> rules.py -> pipeline.py  (Ayush Rai)
 db.py -> seed.py -> units.py -> inventory.py -> resolver.py -> reply.py    (Lokesh)
-llm.py -> imageprep.py -> ocr.py -> extract.py -> rules.py                (Saket)
-main.py -> stub routes -> frontend -> pipeline.py                         (Ayush Rai)
-sample bills -> corpus -> verification -> screenshots -> README           (Ayush Aditya)
+main.py -> stub routes -> frontend -> review table                        (Saket)
+bills -> the gate -> corpus -> integration host -> QA -> demo             (Ayush Aditya)
 ```
 
-`resolver.py` needs no model. The frontend needs no backend. Stubs exist from T+0:40.
+`resolver.py` needs no model. The frontend needs no backend. Stubs exist from T+0:30.
+Ayush Rai's `ocr.py` is the only thing blocked on anything — it needs bill photos, which is
+why those are Ayush Aditya's first task at T+0:00.
 
 ---
 
 ## T+0:00 gate — before anything else
 
-Four tests on the 4060, twenty minutes. Saket runs them; results go in `PROGRESS.md`.
+Four tests on the 4060, twenty minutes. **Ayush Aditya runs them** — it's his machine, so he
+has the fastest iteration loop. Results go in `PROGRESS.md`.
 
 1. **Printed bill.** A clean printed bill photo, downscaled to 1024 px. Does it come back as
    usable one-item-per-line text?
