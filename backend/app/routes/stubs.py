@@ -9,6 +9,7 @@ _SCAN = {
     "raw_text": "20 pkt Parle-G 480\n2 dzn Maggi 240\n3 bdl Local Soap 1500",
     "reply": "Bill mein 3 item mile. Check karke confirm kijiye.",
     "lang": "hi",
+    "direction": "stock_in",
     "items": [
         {"line_index": 0, "line": "20 pkt Parle-G 480", "name": "parle-g", "qty": 20,
          "unit": "packet", "unit_ok": True, "price_paise": 480,
@@ -29,7 +30,7 @@ _SCAN = {
 _ILLEGIBLE = {
     "scan_id": None, "legible": False, "confidence": "low", "script": "latin", "raw_text": "",
     "reply": "Yeh photo padh nahi paya. Bill saaf roshni mein dobara kheenchiye.",
-    "lang": "hi", "items": [], "warnings": [],
+    "lang": "hi", "direction": "stock_in", "items": [], "warnings": [],
     "debug": {"extract_source": "llm", "ocr_ms": 3000, "total_ms": 3100},
 }
 

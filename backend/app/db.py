@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS scans (
     raw_text TEXT,
     items_json TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
+    direction TEXT NOT NULL DEFAULT 'stock_in',
     ts REAL NOT NULL
 );
 
@@ -287,12 +288,13 @@ def insert_ledger_batch(rows: list[dict], conn: sqlite3.Connection | None = None
 # --- scans ---------------------------------------------------------------------------
 
 def create_scan(shop_id: int, raw_text: str, items_json: str, status: str = "pending",
-                 conn: sqlite3.Connection | None = None) -> int:
+                 direction: str = "stock_in", conn: sqlite3.Connection | None = None) -> int:
     conn, owns_conn = _with_conn(conn)
     try:
         cur = conn.execute(
-            "INSERT INTO scans (shop_id, raw_text, items_json, status, ts) VALUES (?, ?, ?, ?, ?)",
-            (shop_id, raw_text, items_json, status, time.time()),
+            "INSERT INTO scans (shop_id, raw_text, items_json, status, direction, ts) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (shop_id, raw_text, items_json, status, direction, time.time()),
         )
         if owns_conn:
             conn.commit()

@@ -137,12 +137,19 @@ select:focus-visible, summary:focus-visible {
   border-radius: 40px; padding: 12px 20px; box-shadow: var(--lift-2);
 }
 table { width: 100%; border-collapse: collapse; }
+#items { table-layout: fixed; } /* fixed columns -- a wide dropdown on one row can't shove every other column out of line */
 th, td { padding: 14px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
 tr:last-child td { border-bottom: 0; }
 th { font-size: 14px; font-weight: 700; color: var(--slate); }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 tr.skipped { opacity: .4; }
-.line { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; color: var(--slate); }
+.line { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; color: var(--slate);
+        overflow-wrap: anywhere; }
+/* Item column: tag always on its own line, the match/select stacked directly
+   under it at the same left edge, regardless of row status. */
+.item-value { margin-top: 4px; }
+#items td input:not(.skip), #items td select { width: 100%; }
+#items td:has(.skip) { text-align: center; }
 
 /* status chip: dot + word. Matched is calm ink; anything needing a decision gets the orange dot. */
 .tag {
@@ -253,6 +260,19 @@ pre { white-space: pre-wrap; background: var(--lifted); border-radius: 24px; pad
   #stock td::before { content: attr(data-label); display: block; font-size: 12px; color: var(--slate); font-weight: 450; }
   #stock td:first-child::before { display: none; }
 }
+
+/* ---- buy/sell direction ---- */
+.direction-select { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; }
+.direction-pill {
+  font: inherit; font-weight: 500; padding: 10px 24px; border-radius: 20px;
+  border: 1.5px solid var(--line); background: var(--white); color: var(--ink); cursor: pointer;
+  text-align: center;
+}
+.direction-pill small { display: block; font-weight: 400; font-size: 12px; color: var(--slate); margin-top: 2px; }
+.direction-pill.active { border-color: var(--ink); background: var(--ink); color: var(--white); }
+.direction-pill.active small { color: rgba(255, 255, 255, .72); }
+.direction-pill[data-direction="stock_out"].active { border-color: var(--clay); background: var(--clay); }
+.banner.selling { background: var(--lifted); border: 1px solid var(--clay); color: var(--clay); font-weight: 600; }
 
 /* ---- voice input ---- */
 .voice-row { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 40px; text-align: center; }

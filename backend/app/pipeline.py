@@ -23,7 +23,7 @@ def _require_shop(shop_id: int) -> None:
         raise BadRequestError(f"unknown shop {shop_id}")
 
 
-def scan_bill(shop_id: int, image: bytes) -> dict:
+def scan_bill(shop_id: int, image: bytes, direction: str = "stock_in") -> dict:
     """Photo in, review payload out. Writes nothing to the ledger.
 
     1. imageprep.prepare()
@@ -31,8 +31,19 @@ def scan_bill(shop_id: int, image: bytes) -> dict:
     3. extract.extract_line() per line
     4. units.normalize_unit() per item -- unknown unit flags the row, isn't an error
     5. resolver.resolve() per item -- attaches match status + candidates
-    6. Persist to `scans` with status "pending", return the review payload
+    6. Persist to `scans` with status "pending" and the given `direction`, return
+       the review payload
+
+    `direction` is "stock_in" (a supplier bill -- the original, still the default)
+    or "stock_out" (a sales bill/invoice the shopkeeper is photographing to book a
+    sale in bulk, instead of typing it line by line into /api/chat). It only
+    changes which way confirm_scan moves the ledger -- extraction and resolution
+    don't care which direction a line is going. Stored on the scan itself rather
+    than trusted from the confirm call, so a client can't change which way a bill
+    books after the fact.
     """
+    if direction not in ("stock_in", "stock_out"):
+        raise BadRequestError(f"unknown direction {direction!r}")
     _require_shop(shop_id)
     total_start = time.perf_counter()
 
@@ -53,6 +64,7 @@ def scan_bill(shop_id: int, image: bytes) -> dict:
             "raw_text": bill["raw_text"],
             "reply": reply.illegible(lang),
             "lang": lang,
+            "direction": direction,
             "items": [],
             "warnings": [],
             "debug": {
@@ -99,6 +111,7 @@ def scan_bill(shop_id: int, image: bytes) -> dict:
         raw_text=bill["raw_text"],
         items_json=json.dumps(items),
         status="pending",
+        direction=direction,
     )
 
     # A line only counts as a silent fallback if nothing on the bill used the model --
@@ -112,8 +125,9 @@ def scan_bill(shop_id: int, image: bytes) -> dict:
         "confidence": bill["confidence"],
         "script": bill["script"],
         "raw_text": bill["raw_text"],
-        "reply": reply.scan_summary(items, lang),
+        "reply": reply.scan_summary(items, lang, direction=direction),
         "lang": lang,
+        "direction": direction,
         "items": items,
         "warnings": warnings,
         "debug": {
@@ -197,11 +211,21 @@ def confirm_scan(shop_id: int, scan_id: int, decisions: list[dict]) -> dict:
             "price_paise": decision.get("price_paise", original.get("price_paise")),
         })
 
-    actions = inventory.apply_scan(shop_id, scan_id, confirmed_items)
+    # Direction comes from the scan itself, not the confirm call -- it was fixed at
+    # scan time (see scan_bill's docstring) so a client can't flip which way a bill
+    # books after the fact.
+    direction = scan["direction"]
+    try:
+        actions = inventory.apply_scan(shop_id, scan_id, confirmed_items, direction=direction)
+    except inventory.InsufficientStockError as e:
+        # Whole bill is one transaction (apply_scan already rolled it back) -- a
+        # sale that can't be fulfilled must reject cleanly, not book the lines
+        # that happened to fit and silently drop the rest.
+        raise ValidationError(str(e)) from e
     db.set_scan_status(scan_id, "confirmed")
 
     return {
-        "reply": reply.confirm_summary(actions, DEFAULT_LANG),
+        "reply": reply.confirm_summary(actions, DEFAULT_LANG, direction=direction),
         "lang": DEFAULT_LANG,
         "actions": actions,
         "aliases_learned": aliases_learned,
@@ -247,6 +271,7 @@ def handle_message(shop_id: int, sender: str, text: str) -> dict:
 
     direction = "stock_in" if intent == "stock_in" else "stock_out"
     actions = []
+    problems = []
     for item in parsed["items"]:
         resolution = resolver.resolve(shop_id, item["name"])
         if resolution["status"] not in ("exact", "fuzzy"):
@@ -259,18 +284,35 @@ def handle_message(shop_id: int, sender: str, text: str) -> dict:
         unit = units.normalize_unit(item.get("unit") or "", lang=lang) or item.get("unit")
         qty_canonical, _confident = units.convert(item["qty"], unit, sku_id) if unit else (item["qty"], False)
 
-        inventory.apply_movement(
-            shop_id, sku_id, direction, qty_canonical,
-            price_paise=item.get("price_paise"), unit_as_said=item.get("unit"),
-        )
+        try:
+            inventory.apply_movement(
+                shop_id, sku_id, direction, qty_canonical,
+                price_paise=item.get("price_paise"), unit_as_said=item.get("unit"),
+            )
+        except inventory.InsufficientStockError as e:
+            # Each item here commits independently (unlike apply_scan's one
+            # transaction), so a blocked item doesn't undo an already-fine sale
+            # earlier in the same message -- it just isn't booked itself, and the
+            # reply says so instead of pretending it was.
+            problems.append(reply.insufficient_stock(e.sku_name, e.have, e.need, e.unit, lang))
+            continue
         actions.append({"sku_id": sku_id, "direction": direction, "qty": qty_canonical, "unit": unit})
 
-    # No resolved action means every item in the message was ambiguous, unknown, or
-    # unparseable -- reply.stock_query_answer's empty-rows case ("couldn't find that
-    # item") reads naturally here too, since the shopkeeper needs the same nudge to
-    # re-check the name.
+    # No resolved action and no problem means every item in the message was
+    # ambiguous, unknown, or unparseable -- reply.stock_query_answer's empty-rows
+    # case ("couldn't find that item") reads naturally here, since the shopkeeper
+    # needs the same nudge to re-check the name.
+    if actions:
+        reply_text = reply.confirm_summary(actions, lang)
+        if problems:
+            reply_text = f"{reply_text} {' '.join(problems)}"
+    elif problems:
+        reply_text = " ".join(problems)
+    else:
+        reply_text = reply.stock_query_answer([], lang)
+
     return {
-        "reply": reply.confirm_summary(actions, lang) if actions else reply.stock_query_answer([], lang),
+        "reply": reply_text,
         "lang": lang,
         "actions": actions,
         "debug": {"extract_source": parsed["_source"], "detected_lang": lang},

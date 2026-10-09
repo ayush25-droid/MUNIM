@@ -31,17 +31,19 @@ class ConfirmBody(BaseModel):
 
 @router.post("/api/scan")
 async def scan(shop_id: int = Form(...), sender: str = Form(...), image: UploadFile = File(...),
-               fail: int = Query(0)) -> dict[str, Any]:
+               direction: str = Form("stock_in"), fail: int = Query(0)) -> dict[str, Any]:
     raw = await image.read(config.MAX_UPLOAD_BYTES + 1)
     if len(raw) > config.MAX_UPLOAD_BYTES:
         raise HTTPException(413, f"image over {config.MAX_UPLOAD_BYTES // 1024 // 1024} MB")
     if not raw:
         raise HTTPException(400, "empty image")
+    if direction not in ("stock_in", "stock_out"):
+        raise HTTPException(400, f"unknown direction {direction!r}")
     if use_stubs():
         return stubs.scan(fail=bool(fail))
     from .. import pipeline
     try:
-        return await run_in_threadpool(pipeline.scan_bill, shop_id, raw)
+        return await run_in_threadpool(pipeline.scan_bill, shop_id, raw, direction)
     except pipeline.BadRequestError as e:  # bad shop_id
         raise HTTPException(400, str(e))
     except ValueError as e:  # undecodable image from imageprep.prepare
