@@ -23,3 +23,6 @@ venv/
 # demo artefacts too large for the repo
 *.mp4
 *.mov
+
+# Claude Code guidance, kept local
+CLAUDE.md
