@@ -31,6 +31,11 @@ WHISPER_COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
 # entirely, and ffmpeg is already a system dependency on this project regardless.
 SAMPLE_RATE = 16000
 
+# The three languages the frontend's picker offers -- a shopkeeper (or the demo's
+# Kannada speaker) picks one before recording, same idea as choosing a keyboard
+# before typing. Whisper's own language codes already line up with ours.
+SUPPORTED_LANGUAGES = ("en", "hi", "kn")
+
 _model = None
 
 
@@ -41,26 +46,28 @@ class VoiceError(RuntimeError):
     """
 
 
-def transcribe(audio: bytes) -> dict:
+def transcribe(audio: bytes, language: str | None = None) -> dict:
     """Raw audio bytes (any format ffmpeg can decode -- webm/ogg/wav/m4a, whatever a
     browser's MediaRecorder produces) -> a transcript.
 
     Returns:
         {"text": str, "lang": str, "confidence": float}
 
-    Language is auto-detected by Whisper itself rather than assumed, since a
-    shopkeeper code-switches mid-sentence -- `lang` here is a plain ISO-639-1 code
-    (e.g. "hi", "kn", "en"), not yet narrowed to the three the rest of the pipeline
-    expects; extract.extract_message() does that narrowing on the transcript text
-    the same way it already does for typed input.
+    `language` (one of SUPPORTED_LANGUAGES) skips Whisper's own language-detection
+    pass when given -- not just an accuracy nudge, but the single biggest latency
+    win available here: a low-confidence auto-detect (seen on real Kannada audio
+    during testing) made the "small" model's worst case 60-90s+ on this CPU, far
+    outside the demo's latency budget. A human picking their own language up front
+    is also just a reasonable UI, the same way a keyboard app asks once.
 
     Raises `VoiceError` on anything that fails to load the model, decode the audio,
     or produces no speech at all -- never returns an empty transcript silently.
     """
     pcm = _decode_to_pcm(audio)
     model = _get_model()
+    forced = language if language in SUPPORTED_LANGUAGES else None
     try:
-        segments, info = model.transcribe(pcm, beam_size=1, vad_filter=True)
+        segments, info = model.transcribe(pcm, language=forced, beam_size=1, vad_filter=True)
         text = " ".join(segment.text.strip() for segment in segments).strip()
     except Exception as exc:  # noqa: BLE001 - inference failures all land here
         raise VoiceError(f"transcription failed: {exc}") from exc

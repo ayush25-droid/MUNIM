@@ -25,6 +25,7 @@ async def voice(
     shop_id: int = Form(...),
     sender: str = Form(...),
     audio: UploadFile = File(...),
+    language: str | None = Form(None),
 ) -> dict[str, Any]:
     raw = await audio.read(MAX_AUDIO_BYTES + 1)
     if len(raw) > MAX_AUDIO_BYTES:
@@ -34,7 +35,7 @@ async def voice(
 
     from .. import voice as voice_module
     try:
-        transcript = await run_in_threadpool(voice_module.transcribe, raw)
+        transcript = await run_in_threadpool(voice_module.transcribe, raw, language)
     except voice_module.VoiceError as e:
         raise HTTPException(400, str(e))
 

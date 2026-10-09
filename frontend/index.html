@@ -14,13 +14,32 @@
 
 <main>
   <section id="capture">
+    <div id="lang-select" class="lang-select" role="radiogroup" aria-label="Spoken language for voice input">
+      <button type="button" class="lang-pill" data-lang="en">English</button>
+      <button type="button" class="lang-pill active" data-lang="hi">हिंदी</button>
+      <button type="button" class="lang-pill" data-lang="kn">ಕನ್ನಡ</button>
+    </div>
+
     <label class="scan-btn" for="photo">
       <span class="scan-icon" aria-hidden="true">&#128247;</span>
       <span>Scan a bill</span>
       <small>Take a photo or choose one</small>
     </label>
     <input id="photo" type="file" accept="image/*" capture="environment" hidden>
+
+    <button id="voice-btn" type="button" class="scan-btn voice-btn">
+      <span class="scan-icon" aria-hidden="true">&#127908;</span>
+      <span id="voice-label">Speak instead</span>
+      <small>Tap to start, tap again to stop</small>
+    </button>
+
     <div id="status" role="status" aria-live="polite"></div>
+  </section>
+
+  <section id="voice-result" hidden>
+    <p id="voice-transcript" class="hint"></p>
+    <p id="voice-reply" class="reply"></p>
+    <button id="voice-again" type="button">Speak again</button>
   </section>
 
   <section id="review" hidden>
