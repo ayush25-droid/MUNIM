@@ -10,6 +10,15 @@
   font-weight: 1 1000;
   font-display: swap;
 }
+/* Kannada glyphs for the language picker; Sofia Sans is Latin only and many machines
+   have no Kannada system font. Noto Sans Kannada, SIL OFL (see fonts/LICENSE-OFL.txt). */
+@font-face {
+  font-family: "Noto Sans Kannada";
+  src: url("fonts/noto-sans-kannada-wght.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0C80-0CFF, U+200C-200D;
+}
 
 :root {
   --canvas: #F3F0EE;
