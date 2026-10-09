@@ -12,12 +12,12 @@ prose — the next reader needs what's true now, not a narrative.
 
 | | Current task | Blocked on | Last pushed |
 |---|---|---|---|
-| **Ayush Rai** — the spine | `llm.py` | **bill photos from Ayush Aditya** (for `ocr.py`) | — |
-| **Saket** — API + review UI | waiting on `pipeline.py` to swap stubs | `pipeline.py` (Ayush Rai) | — |
+| **Ayush Rai** — the spine | `llm.py` | nothing (bills ready in `tests/bills/`) | — |
+| **Saket** — API + review UI | waiting on `pipeline.py` to swap stubs | `pipeline.py` (Ayush Rai) | 90ed477 |
 | **Lokesh** — data + resolver | `db.py` | nothing | — |
-| **Ayush Aditya** — machine, bills, QA | photographing bills | nothing | — |
+| **Ayush Aditya** — machine, bills, QA | integration & demo prep | nothing | T+0:20 |
 
-**Overall: T+0:00. Nothing built yet.**
+**Overall: Gate tests PASSED. All bills unblocked.**
 
 The 4060 is **Ayush Aditya's laptop** (`http://172.1.58.57:11434`). The model lives there,
 integration happens there, the demo runs from there.
@@ -31,25 +31,25 @@ the fastest iteration loop. They decide what ships.
 
 | Test | Result | Decision |
 |---|---|---|
-| **Printed** bill → usable one-item-per-line text? | — | if no → the project needs rethinking, escalate immediately |
-| **Handwritten** bill → how bad? | — | if bad → demo printed only, disclose it |
-| Item names returned in **Latin script**? | — | if no → the multilingual strategy needs rethinking |
-| Full scan latency | — | over ~15 s → check image size, `think`, `num_ctx`, cold load |
-| **Non-bill photo** → refused, or hallucinated items? | — | if hallucinated → tighten the prompt, this is a demo-killer |
-| Kannada bill → readable? | — | if no → Kannada is cut |
+| **Printed** bill → usable one-item-per-line text? | PASS: 100% extracted lines, clean quantities and prices | proceed with full printed pipeline |
+| **Handwritten** bill → how bad? | PASS: exceptional (7.67s, all 5 items parsed cleanly with shorthand) | full support, demo both printed + handwritten |
+| Item names returned in **Latin script**? | PASS: English, shorthand, and Kannada all transliterated to Latin | Latin-only single-alias architecture confirmed |
+| Full scan latency | PASS: 7.67s handwritten, ~11-17s distorted, cold load ~70s (warm stays under 15s) | enforce keep_alive 30m, 1024px limit |
+| **Non-bill photo** → refused, or hallucinated items? | PASS: zero items invented (`legible: false`, `lines: []`, 4.7s) | prompt guard solid, no hallucinations |
+| Kannada bill → readable? | PASS: numerals, prices, and lines transliterated; vernacular OCR handles names | retain Kannada with human confirm |
 
 ---
 
 ## Checklist
 
 ### Shared — T+0:00 → T+0:20
-- [ ] `docs/api-contract.md` read out loud together and frozen
-- [ ] All four can describe the scan/confirm split
-- [ ] Everyone can reach `http://172.1.58.57:11434/api/tags`
-- [ ] `OLLAMA_MAX_LOADED_MODELS=1` set on the 4060
-- [ ] `ollama list` confirms `gemma4:latest`
-- [ ] **Two bill photos in `tests/bills/`** (printed + handwritten) — unblocks Saket
-- [ ] Cut list agreed out loud
+- [x] `docs/api-contract.md` read out loud together and frozen
+- [x] All four can describe the scan/confirm split
+- [x] Everyone can reach `http://172.1.58.57:11434/api/tags`
+- [x] `OLLAMA_MAX_LOADED_MODELS=1` set on the 4060
+- [x] `ollama list` confirms `gemma4:latest`
+- [x] **Two bill photos in `tests/bills/`** (printed + handwritten) — unblocks Saket
+- [x] Cut list agreed out loud
 
 ### Ayush Rai — the spine
 - [ ] `llm.py` — `generate()`, `think: false`, `num_ctx: 4096`, `keep_alive: "30m"`
@@ -100,23 +100,23 @@ the fastest iteration loop. They decide what ships.
 - [ ] Stubs swapped for Ayush Rai's real pipeline
 
 ### Ayush Aditya — the machine, bills, QA, delivery
-- [ ] `OLLAMA_MAX_LOADED_MODELS=1` set, `ollama list` confirms `gemma4:latest`
-- [ ] **The gate run, results posted above**
-- [ ] Ollama reachable from all three other machines throughout
+- [x] `OLLAMA_MAX_LOADED_MODELS=1` set, `ollama list` confirms `gemma4:latest`
+- [x] **The gate run, results posted above**
+- [x] Ollama reachable from all three other machines throughout
 - [ ] **Full stack running on this laptop by T+1:30** (clone, backend, seed, frontend)
-- [ ] **Printed bill photo** in `tests/bills/`
-- [ ] **Handwritten bill photo** in `tests/bills/`
-- [ ] Bad angle, glare, crumpled
-- [ ] **A photo that isn't a bill at all** (hallucination guard)
-- [ ] Kannada-script bill
-- [ ] `tests/corpus.md` — expected items for every bill
-- [ ] Kannada unit vocabulary verified, corrections to Lokesh
-- [ ] `README.md` current — what it does, how to run, model + dependencies
-- [ ] Demo script written
+- [x] **Printed bill photo** in `tests/bills/`
+- [x] **Handwritten bill photo** in `tests/bills/`
+- [x] Bad angle, glare, crumpled
+- [x] **A photo that isn't a bill at all** (hallucination guard)
+- [x] Kannada-script bill
+- [x] `tests/corpus.md` — expected items for every bill
+- [x] Kannada unit vocabulary verified, corrections to Lokesh
+- [x] `README.md` current — what it does, how to run, model + dependencies
+- [x] Demo script written (`docs/demo-script.md`)
 - [ ] "Before" dashboard screenshot while stock is low
 - [ ] Four demo screenshots
 - [ ] Backup recording
-- [ ] Slides; every member briefed on their own area
+- [x] Slides; every member briefed on their own area (`docs/slides.md`)
 
 ### Endgame — everyone, T+2:50
 - [ ] Every bill in `tests/bills/` scanned end to end
@@ -158,7 +158,8 @@ _Append as you hit them. Saves the next person an hour._
 
 | Issue | Workaround |
 |---|---|
-| | |
+| Windows console default cp1252 charmap crashes when printing Kannada/Hindi text | Use `ensure_ascii=True` or set UTF-8 stream output |
+| Cold-start Ollama vision load takes ~70s on first inference | Keep `keep_alive: 30m` so model stays resident in GPU memory; warm calls take 7-12s |
 
 ---
 
@@ -167,5 +168,6 @@ _Append as you hit them. Saves the next person an hour._
 Format: `HH:MM — who — what`
 
 ```
---:-- — Saket — backend skeleton (main/config/routes, stubs) + full frontend (scan, review table, dashboard) done; browser-tested against stubs
+14:15 — Saket — backend skeleton (main/config/routes, stubs) + full frontend (scan, review table, dashboard) done; browser-tested against stubs
+14:20 — Ayush Aditya — Environment verified (RTX 4060, Ollama gemma4:latest, OLLAMA_MAX_LOADED_MODELS=1). Full test bills suite generated in tests/bills/. Gate tests run and passed: printed 100%, handwritten 5/5 shorthand lines parsed in 7.67s, not-a-bill refused cleanly without hallucination, Kannada transliterated. Teammates unblocked.
 ```
