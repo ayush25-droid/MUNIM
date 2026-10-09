@@ -1,0 +1,25 @@
+# secrets and local config
+.env
+backend/.env
+
+# database
+*.db
+*.db-journal
+*.sqlite3
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# demo artefacts too large for the repo
+*.mp4
+*.mov
