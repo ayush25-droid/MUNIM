@@ -39,7 +39,28 @@
       </label>
       <input id="photo" type="file" accept="image/*" capture="environment" hidden>
     </div>
+
+    <div class="voice-row">
+      <p class="voice-or">or speak the delivery</p>
+      <div id="lang-select" class="lang-select" role="radiogroup" aria-label="Spoken language for voice input">
+        <button type="button" class="lang-pill" data-lang="en">English</button>
+        <button type="button" class="lang-pill active" data-lang="hi">&#2361;&#2367;&#2306;&#2342;&#2368;</button>
+        <button type="button" class="lang-pill" data-lang="kn">&#3221;&#3240;&#3277;&#3240;&#3233;</button>
+      </div>
+      <button id="voice-btn" type="button" class="btn secondary voice-btn">
+        <svg class="mic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        <span id="voice-label">Speak instead</span>
+      </button>
+      <p class="voice-hint">Tap to start, tap again to stop</p>
+    </div>
     <div id="status" role="status" aria-live="polite"></div>
+  </section>
+
+  <section id="voice-result" hidden>
+    <p class="eyebrow"><span class="dot" aria-hidden="true"></span>Heard</p>
+    <p id="voice-transcript" class="hint"></p>
+    <p id="voice-reply" class="reply"></p>
+    <button id="voice-again" class="btn primary" type="button">Speak again</button>
   </section>
 
   <section id="review" hidden>
