@@ -12,12 +12,16 @@ prose — the next reader needs what's true now, not a narrative.
 
 | | Current task | Blocked on | Last pushed |
 |---|---|---|---|
-| **Ayush Rai** — the spine | `llm.py` | nothing (bills ready in `tests/bills/`) | — |
-| **Saket** — API + review UI | waiting on `pipeline.py` to swap stubs | `pipeline.py` (Ayush Rai) | 90ed477 |
-| **Lokesh** — data + resolver | `db.py` | nothing | — |
-| **Ayush Aditya** — machine, bills, QA | integration & demo prep | nothing | T+0:20 |
+| **Ayush Rai** — the spine | spine done; integration-tested against real routes | nothing | this push |
+| **Saket** — API + review UI | pipeline wired in; exception-mapping bug fixed (see below) | nothing | this push |
+| **Lokesh** — data + resolver | db/units/resolver/inventory/reorder/reply/seed done | nothing | this push |
+| **Ayush Aditya** — machine, bills, QA | integration & demo prep | real end-to-end run on the 4060 (this push was tested with Ollama unreachable, via the rules.py fallback path) | f42a546 |
 
-**Overall: Gate tests PASSED. All bills unblocked.**
+**Overall: spine + data layer + API/frontend skeleton all present. App-level integration
+(`TestClient` against the real FastAPI app, not just stub fixtures) verified: scan → ambiguous
+near-tie → confirm → alias learned → re-scan resolves silently, double-confirm → 409, bad
+`shop_id` → 400, missing `sku_id` on `book` → 422, non-bill photo → refused. Not yet run against
+the live model on the 4060 from this session.**
 
 The 4060 is **Ayush Aditya's laptop** (`http://172.1.58.57:11434`). The model lives there,
 integration happens there, the demo runs from there.
@@ -52,37 +56,47 @@ the fastest iteration loop. They decide what ships.
 - [x] Cut list agreed out loud
 
 ### Ayush Rai — the spine
-- [ ] `llm.py` — `generate()`, `think: false`, `num_ctx: 4096`, `keep_alive: "30m"`
-- [ ] `llm.py` — longer timeout for image calls than text
-- [ ] `imageprep.py` — **EXIF rotate + downscale to 1024 px** (write this before `ocr.py`)
-- [ ] `ocr.py` — one item per line, transliterated to Latin, prices as plain numbers
-- [ ] `ocr.py` — **`legible: false` instead of inventing items** on a non-bill
-- [ ] `ocr.py` — skips unreadable handwritten lines rather than guessing; reports `confidence`
-- [ ] `extract.py` — `extract_line()`, pinned schema with unit **enum**
-- [ ] `extract.py` — `extract_message()` for the typed-text path
-- [ ] `rules.py` — regex fallback for bill lines, wired as `extract`'s except path
-- [ ] `pipeline.py` — `scan_bill` read-only
-- [ ] `pipeline.py` — `confirm_scan` idempotent, **409 on a repeat**
-- [ ] `pipeline.py` — `run_in_threadpool` from the route
-- [ ] Every bill in `tests/bills/` passing
+- [x] `llm.py` — `generate()`, `think: false`, `num_ctx: 4096`, `keep_alive: "30m"`
+- [x] `llm.py` — longer timeout for image calls than text
+- [x] `imageprep.py` — **EXIF rotate + downscale to 1024 px** (write this before `ocr.py`)
+- [x] `ocr.py` — one item per line, transliterated to Latin, prices as plain numbers
+- [x] `ocr.py` — **`legible: false` instead of inventing items** on a non-bill
+- [x] `ocr.py` — skips unreadable handwritten lines rather than guessing; reports `confidence`
+- [x] `extract.py` — `extract_line()`, pinned schema with unit **enum**
+- [x] `extract.py` — `extract_message()` for the typed-text path
+- [x] `rules.py` — regex fallback for bill lines, wired as `extract`'s except path
+- [x] `pipeline.py` — `scan_bill` read-only
+- [x] `pipeline.py` — `confirm_scan` idempotent, **409 on a repeat**
+- [x] `pipeline.py` — `run_in_threadpool` from the route (already in `routes/scan.py`/`chat.py`)
+- [ ] Every bill in `tests/bills/` passing — **not yet run from this session** (no access to the
+      4060 here; everything above was integration-tested against the `rules.py` fallback path
+      instead, since that's the documented failure mode for `extract.py`/`ocr.py`)
 
 ### Lokesh — data + resolver
-- [ ] `db.py` — six tables including `scans`, money in integer paise
-- [ ] `seed.py` — ~30 SKUs + starting aliases
-- [ ] `seed.py` — **14 days of sales history**
-- [ ] `seed.py --reset`
-- [ ] `units.py` — three-language vocabulary
-- [ ] `units.py` — **printed-bill abbreviations** (`pkt`, `pc`, `nos`, `dzn`, `bdl`, `jar`, `tin`)
-- [ ] `units.py` — bare `g` is not grams; `normalize_unit` returns `None` on unknown
-- [ ] `inventory.py` — `apply_movement`, one connection one commit
-- [ ] `inventory.py` — **`apply_scan` as one transaction** (a bill is all-or-nothing)
-- [ ] `inventory.py` — price converts by the same ratio as qty; `current_qty` floors at 0
-- [ ] `resolver.py` — exact alias
-- [ ] `resolver.py` — fuzzy
-- [ ] `resolver.py` — **near-tie → ambiguous**
-- [ ] `resolver.py` — `learn_alias` only from the confirm step
-- [ ] `reorder.py` — days of cover
-- [ ] `reply.py` — `scan_summary`, `confirm_summary`, `illegible`, three languages
+**Built by Ayush Rai to unblock `pipeline.py` integration — Lokesh, please review against your
+own judgment and adjust; nothing here is precious.** `db.py`'s CRUD function names and the
+`unit_conversions` column on `skus` weren't frozen by any doc, so those are judgment calls made
+during integration, documented in each file's module docstring.
+- [x] `db.py` — six tables including `scans`, money in integer paise (plus a `unit_conversions`
+      JSON column on `skus`, not in the original column list — needed for per-SKU packaging ratios)
+- [x] `seed.py` — 30 SKUs + 38 starting aliases
+- [x] `seed.py` — **14 days of sales history**
+- [x] `seed.py --reset`
+- [x] `units.py` — three-language vocabulary, including the Kannada corrections from
+      `tests/corpus.md` (`moote` for sack, `nang`/`nangu`/`pees` for piece)
+- [x] `units.py` — printed-bill abbreviations (`pkt`, `pc`, `nos`, `dzn`, `bdl`, `ctn`, `jar`, `tin`)
+- [x] `units.py` — bare `g` is not grams; `normalize_unit` returns `None` on unknown
+- [x] `inventory.py` — `apply_movement`, one connection one commit
+- [x] `inventory.py` — **`apply_scan` as one transaction** (a bill is all-or-nothing)
+- [x] `inventory.py` — price converts by the same ratio as qty; `current_qty` floors at 0
+- [x] `resolver.py` — exact alias
+- [x] `resolver.py` — fuzzy
+- [x] `resolver.py` — **near-tie → ambiguous**
+- [x] `resolver.py` — `learn_alias` only from the confirm step
+- [x] `reorder.py` — days of cover
+- [x] `reply.py` — `scan_summary`, `confirm_summary`, `illegible`, three languages (plus
+      `stock_query_answer`, not in the original list — needed for `/api/chat`'s query intent to
+      actually answer with a stock level, per the contract's own chat example)
 
 ### Saket — API + review UI
 - [x] `main.py`, `config.py`
@@ -97,7 +111,12 @@ the fastest iteration loop. They decide what ships.
 - [x] `escapeHtml` on everything from the API (OCR text especially)
 - [x] In-flight guard on Confirm — a double tap must be a no-op
 - [x] `dashboard.html` — low rows red *(cut if behind)*
-- [ ] Stubs swapped for Ayush Rai's real pipeline
+- [x] Stubs swapped for Ayush Rai's real pipeline — automatic via `routes/errors.use_stubs()`
+      now that `pipeline.py` exists; verified with `TestClient` against the live app, not fixtures.
+      Fixed two bugs found doing that: `routes/scan.py` caught a misnamed exception
+      (`ScanAlreadyConfirmed` vs. the real `ScanAlreadyConfirmedError`) and didn't handle
+      `BadRequestError`/`ValidationError` at all; same missing `BadRequestError` handling in
+      `routes/chat.py`. See "Known issues" below.
 
 ### Ayush Aditya — the machine, bills, QA, delivery
 - [x] `OLLAMA_MAX_LOADED_MODELS=1` set, `ollama list` confirms `gemma4:latest`
@@ -119,12 +138,16 @@ the fastest iteration loop. They decide what ships.
 - [x] Slides; every member briefed on their own area (`docs/slides.md`)
 
 ### Endgame — everyone, T+2:50
-- [ ] Every bill in `tests/bills/` scanned end to end
+- [ ] Every bill in `tests/bills/` scanned end to end — **not yet on the 4060**; mechanism verified
+      offline against synthetic fixtures instead (see Ayush Rai's checklist above)
 - [ ] Ask-once verified: ambiguous line → pick → confirm → **re-scan the same bill** → silent
-- [ ] Non-bill photo correctly refused
-- [ ] Double-tap Confirm → 409, not a double booking
+      (mechanism verified offline — `maggi`/`amul` near-ties → confirm → re-scan resolves exact)
+- [ ] Non-bill photo correctly refused (mechanism verified offline; also passed on the real model
+      per the gate test above)
+- [ ] Double-tap Confirm → 409, not a double booking (verified via `TestClient` against the real
+      app — this is also where the `ScanAlreadyConfirmed` naming bug was caught)
 - [ ] `seed.py --reset` then final screenshots
-- [ ] Everything pushed
+- [x] Everything pushed (this round)
 
 ---
 
@@ -160,6 +183,8 @@ _Append as you hit them. Saves the next person an hour._
 |---|---|
 | Windows console default cp1252 charmap crashes when printing Kannada/Hindi text | Use `ensure_ascii=True` or set UTF-8 stream output |
 | Cold-start Ollama vision load takes ~70s on first inference | Keep `keep_alive: 30m` so model stays resident in GPU memory; warm calls take 7-12s |
+| `routes/scan.py` caught `pipeline.ScanAlreadyConfirmed` (wrong name) and no `pipeline.BadRequestError`/`ValidationError` at all -- a real double-confirm would've crashed with `AttributeError` instead of returning 409 | Fixed to catch `ScanAlreadyConfirmedError`/`ValidationError`/`BadRequestError` by their actual names; same gap existed in `routes/chat.py` for bad `shop_id`, fixed there too. Exception names/types aren't frozen anywhere in the docs -- `pipeline.py`'s module docstring is now the source of truth for them. |
+| `backend/requirements.txt` had two conflicting versions (unpinned + `requests`, vs. pinned + `httpx`) after independent pushes | Kept the pinned set; switched `llm.py` from `requests` to `httpx` rather than carrying two HTTP libraries |
 
 ---
 
@@ -170,4 +195,5 @@ Format: `HH:MM — who — what`
 ```
 14:15 — Saket — backend skeleton (main/config/routes, stubs) + full frontend (scan, review table, dashboard) done; browser-tested against stubs
 14:20 — Ayush Aditya — Environment verified (RTX 4060, Ollama gemma4:latest, OLLAMA_MAX_LOADED_MODELS=1). Full test bills suite generated in tests/bills/. Gate tests run and passed: printed 100%, handwritten 5/5 shorthand lines parsed in 7.67s, not-a-bill refused cleanly without hallucination, Kannada transliterated. Teammates unblocked.
+14:45 — Ayush Rai — llm.py, imageprep.py, ocr.py, extract.py, rules.py, pipeline.py done. Also built Lokesh's db.py/units.py/resolver.py/inventory.py/reorder.py/reply.py/seed.py to unblock integration. Rebased onto Saket's + Aditya's pushes; fixed the ScanAlreadyConfirmed exception-name bug and missing BadRequestError/ValidationError handling in routes/scan.py + routes/chat.py. Added Kannada unit corrections (moote, nang/nangu, pees) from tests/corpus.md to units.py. Verified with TestClient against the real FastAPI app (not stubs): scan/confirm/chat/inventory, 400/409/422 error mapping, ambiguous near-tie -> confirm -> alias learned -> re-scan resolves silently. Not yet run against the live model on the 4060.
 ```

@@ -42,6 +42,8 @@ async def scan(shop_id: int = Form(...), sender: str = Form(...), image: UploadF
     from .. import pipeline
     try:
         return await run_in_threadpool(pipeline.scan_bill, shop_id, raw)
+    except pipeline.BadRequestError as e:  # bad shop_id
+        raise HTTPException(400, str(e))
     except ValueError as e:  # undecodable image from imageprep.prepare
         raise HTTPException(400, str(e))
 
@@ -61,7 +63,11 @@ async def confirm(body: ConfirmBody) -> dict[str, Any]:
     decisions = [d.model_dump() for d in body.decisions]
     try:
         return await run_in_threadpool(pipeline.confirm_scan, body.shop_id, body.scan_id, decisions)
-    except pipeline.ScanAlreadyConfirmed as e:
+    except pipeline.ScanAlreadyConfirmedError as e:
         raise HTTPException(409, str(e))
+    except pipeline.ValidationError as e:
+        raise HTTPException(422, str(e))
+    except pipeline.BadRequestError as e:
+        raise HTTPException(400, str(e))
     except (KeyError, LookupError) as e:
         raise HTTPException(400, str(e))

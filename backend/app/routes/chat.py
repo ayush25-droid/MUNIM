@@ -1,7 +1,7 @@
 """POST /api/chat: typed text for queries and corrections."""
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
@@ -22,4 +22,7 @@ async def chat(body: ChatBody) -> dict[str, Any]:
     if use_stubs():
         return stubs.chat()
     from .. import pipeline
-    return await run_in_threadpool(pipeline.handle_message, body.shop_id, body.sender, body.text)
+    try:
+        return await run_in_threadpool(pipeline.handle_message, body.shop_id, body.sender, body.text)
+    except pipeline.BadRequestError as e:
+        raise HTTPException(400, str(e))
