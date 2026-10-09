@@ -67,6 +67,21 @@ async function api(path, opts) {
 
 // ---- scan ---------------------------------------------------------------
 
+// "stock_in" (buying -- a supplier bill, the original default) or "stock_out"
+// (selling -- a sales bill/invoice photographed to book a sale in bulk, instead
+// of typing it into chat line by line). Picked before the photo so the server can
+// trust it: it's stored on the scan itself, not resent at confirm time.
+let billDirection = "stock_in";
+
+document.querySelectorAll(".direction-pill").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".direction-pill").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    billDirection = btn.dataset.direction;
+    $("portrait-title").textContent = billDirection === "stock_out" ? "Scan a sales bill" : "Scan a bill";
+  });
+});
+
 $("photo").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   e.target.value = ""; // allow re-picking the same file
@@ -80,6 +95,7 @@ $("photo").addEventListener("change", async (e) => {
     fd.append("shop_id", SHOP_ID);
     fd.append("sender", sender);
     fd.append("image", blob, "bill.jpg");
+    fd.append("direction", billDirection);
     const qs = new URLSearchParams(location.search).get("fail") ? "?fail=1" : "";
     scan = await api("/api/scan" + qs, { method: "POST", body: fd });
     setStatus("");
@@ -197,6 +213,7 @@ function renderReview(s) {
   show("review");
   const banner = $("banner");
   banner.hidden = true;
+  banner.className = "banner";
 
   $("reply").textContent = s.reply || "";
   $("warnings").innerHTML = (s.warnings || []).map((w) => `<div>&#9888; ${esc(w)}</div>`).join("");
@@ -219,9 +236,19 @@ function renderReview(s) {
   $("items").closest(".table-wrap").hidden = false;
   $("confirm").hidden = false;
   $("discard").textContent = "Discard";
+
+  // A bill can be both low-confidence AND a selling bill -- stack both notices in
+  // the one banner rather than letting the second overwrite the first.
+  const notices = [];
+  if (s.direction === "stock_out") {
+    notices.push(["selling", "This is a selling bill — confirming will reduce stock, not add it."]);
+  }
   if (s.confidence === "low") {
-    banner.className = "banner low";
-    banner.textContent = "Hard to read. Check every line carefully before confirming.";
+    notices.push(["low", "Hard to read. Check every line carefully before confirming."]);
+  }
+  if (notices.length) {
+    banner.className = "banner " + notices.map(([cls]) => cls).join(" ");
+    banner.innerHTML = notices.map(([, text]) => `<div>${esc(text)}</div>`).join("");
     banner.hidden = false;
   }
 
@@ -337,8 +364,10 @@ function renderResult(res) {
   show("result");
   window.scrollTo({ top: 0 });
   $("result-reply").textContent = res.reply || "";
-  $("result-actions").innerHTML = (res.actions || []).map((a) =>
-    `<li>${esc(a.sku_name)}: +${esc(a.qty)} ${esc(a.unit)} &rarr; now ${esc(a.new_qty)}</li>`).join("");
+  $("result-actions").innerHTML = (res.actions || []).map((a) => {
+    const sign = a.direction === "stock_out" ? "-" : "+";
+    return `<li>${esc(a.sku_name)}: ${sign}${esc(a.qty)} ${esc(a.unit)} &rarr; now ${esc(a.new_qty)}</li>`;
+  }).join("");
   const learned = $("learned");
   if (res.aliases_learned?.length) {
     learned.innerHTML = res.aliases_learned.map((a) =>

@@ -29,6 +29,7 @@ Multipart only — there's always an image.
 | `shop_id` | int | Required |
 | `sender` | string | Required. Per-tab id from `sessionStorage` |
 | `image` | file | Required. The bill photo |
+| `direction` | string | Optional, extension added after the original freeze (`feature/sales-bill-scan`). `"stock_in"` (default, unchanged behaviour — a supplier bill) or `"stock_out"` (a sales bill/invoice, photographed to book a sale in bulk instead of typing it into `/api/chat`). Stored on the scan itself and echoed back as `direction` in the response; **not** resent at confirm time — `/api/scan/confirm` always uses whatever direction the scan was created with, so a client can't flip which way a bill books after the fact. |
 
 **The browser downscales to 1024 px on the longest edge before uploading.** The server
 re-does it as a guard, but doing it client-side keeps uploads fast on venue wifi.
@@ -46,6 +47,7 @@ Upload cap: **15 MB** → `413`.
   "raw_text": "20 pkt Parle-G 480\n2 dzn Maggi 240\n5 kg Aashirvaad Atta 4600",
   "reply": "Bill mein 3 item mile. Check karke confirm kijiye.",
   "lang": "hi",
+  "direction": "stock_in",
   "items": [
     {
       "line_index": 0,
@@ -91,6 +93,7 @@ Upload cap: **15 MB** → `413`.
 | Field | Notes |
 |---|---|
 | `scan_id` | Pass this back to `/confirm`. Valid until confirmed or abandoned. |
+| `direction` | Echoes the request's `direction` (see above). `"stock_out"` is the UI's cue to show a "this will reduce stock" banner before confirm. |
 | `legible` | `false` when the photo isn't a bill or can't be read. Then `items` is empty and `reply` explains. **The frontend must handle this case first.** |
 | `confidence` | `"low"` on a handwritten or poor-quality read. The UI shows a "check carefully" banner. |
 | `raw_text` | The full transcription. **Display it** — on a handwritten bill the shopkeeper needs to see what was read. |

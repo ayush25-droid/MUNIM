@@ -55,15 +55,22 @@ def apply_movement(shop_id: int, sku_id: int, direction: str, qty_canonical: flo
             conn.close()
 
 
-def apply_scan(shop_id: int, scan_id: int, confirmed_items: list[dict]) -> list[dict]:
+def apply_scan(shop_id: int, scan_id: int, confirmed_items: list[dict],
+                direction: str = "stock_in") -> list[dict]:
     """One transaction for the whole bill -- all-or-nothing. A supplier bill is
-    always `stock_in` (README: "A supplier bill is always stock_in").
+    `stock_in`; a sales bill/invoice photographed to book a sale in bulk (instead of
+    typing it line by line into /api/chat) is `stock_out` -- `direction` comes from
+    the scan itself (pipeline.confirm_scan reads it off the stored scan row, not the
+    confirm call), so it can't be a lie: whatever the shopkeeper picked before
+    photographing the bill is what actually books.
 
     Each item in `confirmed_items` is
         {"line_index", "sku_id", "qty", "unit", "price_paise"}
     (as built by pipeline.confirm_scan from the shopkeeper's decisions, trusting the
     confirmed values over whatever was originally parsed).
     """
+    if direction not in ("stock_in", "stock_out"):
+        raise ValueError(f"unknown direction {direction!r}")
     conn = db.get_connection()
     actions: list[dict] = []
     try:
@@ -85,7 +92,7 @@ def apply_scan(shop_id: int, scan_id: int, confirmed_items: list[dict]) -> list[
                     canonical_price = round(price_paise / ratio)
 
             apply_movement(
-                shop_id, sku_id, "stock_in", qty_canonical,
+                shop_id, sku_id, direction, qty_canonical,
                 price_paise=canonical_price, unit_as_said=stated_unit,
                 scan_id=scan_id, conn=conn,
             )
@@ -94,7 +101,7 @@ def apply_scan(shop_id: int, scan_id: int, confirmed_items: list[dict]) -> list[
             actions.append({
                 "sku_id": sku_id,
                 "sku_name": sku["name"],
-                "direction": "stock_in",
+                "direction": direction,
                 "qty": qty_canonical,
                 "unit": sku["canonical_unit"],
                 "new_qty": updated["current_qty"],

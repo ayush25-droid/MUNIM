@@ -27,13 +27,18 @@
       <p class="lede">Handwritten or printed, in Kannada, Hindi or English. Nothing is saved until you confirm.</p>
     </div>
 
+    <div id="direction-select" class="direction-select" role="radiogroup" aria-label="Is this bill buying or selling stock?">
+      <button type="button" class="direction-pill active" data-direction="stock_in">Buying <small>stock comes in</small></button>
+      <button type="button" class="direction-pill" data-direction="stock_out">Selling <small>stock goes out</small></button>
+    </div>
+
     <div class="orbit-stage">
       <svg class="orbit" viewBox="0 0 400 260" aria-hidden="true" preserveAspectRatio="none">
         <path d="M2 210 C 90 250, 190 40, 398 70" fill="none" stroke="#F37338" stroke-width="1.5" stroke-linecap="round"/>
       </svg>
       <label class="portrait" for="photo">
         <svg class="cam" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
-        <span class="portrait-title">Scan a bill</span>
+        <span class="portrait-title" id="portrait-title">Scan a bill</span>
         <span class="portrait-sub">Take a photo or choose one</span>
         <span class="satellite" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
       </label>

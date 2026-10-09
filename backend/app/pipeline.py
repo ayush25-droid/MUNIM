@@ -23,7 +23,7 @@ def _require_shop(shop_id: int) -> None:
         raise BadRequestError(f"unknown shop {shop_id}")
 
 
-def scan_bill(shop_id: int, image: bytes) -> dict:
+def scan_bill(shop_id: int, image: bytes, direction: str = "stock_in") -> dict:
     """Photo in, review payload out. Writes nothing to the ledger.
 
     1. imageprep.prepare()
@@ -31,8 +31,19 @@ def scan_bill(shop_id: int, image: bytes) -> dict:
     3. extract.extract_line() per line
     4. units.normalize_unit() per item -- unknown unit flags the row, isn't an error
     5. resolver.resolve() per item -- attaches match status + candidates
-    6. Persist to `scans` with status "pending", return the review payload
+    6. Persist to `scans` with status "pending" and the given `direction`, return
+       the review payload
+
+    `direction` is "stock_in" (a supplier bill -- the original, still the default)
+    or "stock_out" (a sales bill/invoice the shopkeeper is photographing to book a
+    sale in bulk, instead of typing it line by line into /api/chat). It only
+    changes which way confirm_scan moves the ledger -- extraction and resolution
+    don't care which direction a line is going. Stored on the scan itself rather
+    than trusted from the confirm call, so a client can't change which way a bill
+    books after the fact.
     """
+    if direction not in ("stock_in", "stock_out"):
+        raise BadRequestError(f"unknown direction {direction!r}")
     _require_shop(shop_id)
     total_start = time.perf_counter()
 
@@ -53,6 +64,7 @@ def scan_bill(shop_id: int, image: bytes) -> dict:
             "raw_text": bill["raw_text"],
             "reply": reply.illegible(lang),
             "lang": lang,
+            "direction": direction,
             "items": [],
             "warnings": [],
             "debug": {
@@ -99,6 +111,7 @@ def scan_bill(shop_id: int, image: bytes) -> dict:
         raw_text=bill["raw_text"],
         items_json=json.dumps(items),
         status="pending",
+        direction=direction,
     )
 
     # A line only counts as a silent fallback if nothing on the bill used the model --
@@ -112,8 +125,9 @@ def scan_bill(shop_id: int, image: bytes) -> dict:
         "confidence": bill["confidence"],
         "script": bill["script"],
         "raw_text": bill["raw_text"],
-        "reply": reply.scan_summary(items, lang),
+        "reply": reply.scan_summary(items, lang, direction=direction),
         "lang": lang,
+        "direction": direction,
         "items": items,
         "warnings": warnings,
         "debug": {
@@ -197,11 +211,15 @@ def confirm_scan(shop_id: int, scan_id: int, decisions: list[dict]) -> dict:
             "price_paise": decision.get("price_paise", original.get("price_paise")),
         })
 
-    actions = inventory.apply_scan(shop_id, scan_id, confirmed_items)
+    # Direction comes from the scan itself, not the confirm call -- it was fixed at
+    # scan time (see scan_bill's docstring) so a client can't flip which way a bill
+    # books after the fact.
+    direction = scan["direction"]
+    actions = inventory.apply_scan(shop_id, scan_id, confirmed_items, direction=direction)
     db.set_scan_status(scan_id, "confirmed")
 
     return {
-        "reply": reply.confirm_summary(actions, DEFAULT_LANG),
+        "reply": reply.confirm_summary(actions, DEFAULT_LANG, direction=direction),
         "lang": DEFAULT_LANG,
         "actions": actions,
         "aliases_learned": aliases_learned,

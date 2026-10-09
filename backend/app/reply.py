@@ -14,39 +14,55 @@ that case.
 from __future__ import annotations
 
 
-def scan_summary(items: list[dict], lang: str) -> str:
+def scan_summary(items: list[dict], lang: str, direction: str = "stock_in") -> str:
     count = len(items)
     needs_attention = sum(
         1 for i in items
         if i.get("resolution", {}).get("status") in ("ambiguous", "unknown")
         or not i.get("unit_ok", True)
     )
+    # Only a selling bill gets a prefix -- stock_in is the original, unannounced
+    # default, so its wording stays exactly what it was before direction existed.
+    note = _direction_note(direction, lang)
 
     if count == 0:
-        return {
+        text = {
             "hi": "Bill mein koi item nahi mila.",
             "kn": "ಬಿಲ್‌ನಲ್ಲಿ ಯಾವುದೇ ಐಟಂ ಸಿಗಲಿಲ್ಲ.",
         }.get(lang, "No items found on the bill.")
+        return f"{note} {text}" if note else text
 
     if lang == "hi":
         base = f"Bill mein {count} item mile."
-        if needs_attention:
-            return f"{base} {needs_attention} ko check karke confirm kijiye."
-        return f"{base} Check karke confirm kijiye."
-
-    if lang == "kn":
+        text = f"{base} {needs_attention} ko check karke confirm kijiye." if needs_attention \
+            else f"{base} Check karke confirm kijiye."
+    elif lang == "kn":
         base = f"ಬಿಲ್‌ನಲ್ಲಿ {count} ಐಟಂ ಸಿಕ್ಕಿವೆ."
-        if needs_attention:
-            return f"{base} {needs_attention} ಐಟಂ ಪರಿಶೀಲಿಸಿ."
-        return f"{base} ಪರಿಶೀಲಿಸಿ ಮತ್ತು ಖಚಿತಪಡಿಸಿ."
+        text = f"{base} {needs_attention} ಐಟಂ ಪರಿಶೀಲಿಸಿ." if needs_attention \
+            else f"{base} ಪರಿಶೀಲಿಸಿ ಮತ್ತು ಖಚಿತಪಡಿಸಿ."
+    else:
+        base = f"Found {count} item{'s' if count != 1 else ''} on the bill."
+        text = f"{base} {needs_attention} need your input before confirming." if needs_attention \
+            else f"{base} Review and confirm."
 
-    base = f"Found {count} item{'s' if count != 1 else ''} on the bill."
-    if needs_attention:
-        return f"{base} {needs_attention} need your input before confirming."
-    return f"{base} Review and confirm."
+    return f"{note} {text}" if note else text
 
 
-def confirm_summary(actions: list[dict], lang: str) -> str:
+def _direction_note(direction: str, lang: str) -> str:
+    """A short heads-up that stock will go DOWN, said only for a selling bill --
+    the shopkeeper confirming a sale needs to know that up front, the same way the
+    review table's qty/price are shown before anything is written. Silent for
+    stock_in since that's the original, long-verified default behaviour.
+    """
+    if direction != "stock_out":
+        return ""
+    return {
+        "hi": "Yeh bikri ka bill hai, stock kam hoga.",
+        "kn": "ಇದು ಮಾರಾಟದ ಬಿಲ್, ಸ್ಟಾಕ್ ಕಡಿಮೆಯಾಗುತ್ತದೆ.",
+    }.get(lang, "This is a selling bill, stock will go down.")
+
+
+def confirm_summary(actions: list[dict], lang: str, direction: str = "stock_in") -> str:
     count = len(actions)
     if count == 0:
         return {
@@ -63,6 +79,15 @@ def confirm_summary(actions: list[dict], lang: str) -> str:
             tail = f" {headline['sku_name']} ಈಗ {headline['new_qty']} {headline.get('unit', '')}."
         else:
             tail = f" {headline['sku_name']} is now {headline['new_qty']} {headline.get('unit', '')}."
+
+    # Same silent-for-stock_in rule as scan_summary's _direction_note -- unchanged
+    # wording for the long-verified default, a short "sold" prefix for the new path.
+    if direction == "stock_out":
+        if lang == "hi":
+            return f"{count} item becha gaya.{tail}"
+        if lang == "kn":
+            return f"{count} ಐಟಂ ಮಾರಾಟವಾಗಿದೆ.{tail}"
+        return f"{count} item{'s' if count != 1 else ''} sold.{tail}"
 
     if lang == "hi":
         return f"{count} item likh diye.{tail}"
