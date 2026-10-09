@@ -15,13 +15,11 @@ prose — the next reader needs what's true now, not a narrative.
 | **Ayush Rai** — the spine | spine done; integration-tested against real routes | nothing | this push |
 | **Saket** — API + review UI | done; verified live against the 4060 | nothing | this push |
 | **Lokesh** — data + resolver | db/units/resolver/inventory/reorder/reply/seed done | nothing | this push |
-| **Ayush Aditya** — machine, bills, QA | integration & demo prep | real end-to-end run on the 4060 (this push was tested with Ollama unreachable, via the rules.py fallback path) | f42a546 |
+| **Ayush Aditya** — machine, bills, QA | integration & demo prep | live hardware end-to-end verified on 4060 (scan in 6s, ask-once confirmed, 409 confirmed) | this push |
 
-**Overall: spine + data layer + API/frontend skeleton all present. App-level integration
-(`TestClient` against the real FastAPI app, not just stub fixtures) verified: scan → ambiguous
-near-tie → confirm → alias learned → re-scan resolves silently, double-confirm → 409, bad
-`shop_id` → 400, missing `sku_id` on `book` → 422, non-bill photo → refused. Not yet run against
-the live model on the 4060 from this session.**
+**Overall: Full stack running and verified end-to-end on live RTX 4060 laptop with gemma4:latest.
+OCR takes 2.0s, total scan 6.0s. Near-tie ambiguity -> human confirm -> alias learned -> silent
+re-scan verified on live model. 409 idempotency verified. Ready for screenshots and demo.**
 
 The 4060 is **Ayush Aditya's laptop** (`http://172.1.58.57:11434`). The model lives there,
 integration happens there, the demo runs from there.
@@ -122,7 +120,7 @@ during integration, documented in each file's module docstring.
 - [x] `OLLAMA_MAX_LOADED_MODELS=1` set, `ollama list` confirms `gemma4:latest`
 - [x] **The gate run, results posted above**
 - [x] Ollama reachable from all three other machines throughout
-- [ ] **Full stack running on this laptop by T+1:30** (clone, backend, seed, frontend)
+- [x] **Full stack running on this laptop by T+1:30** (clone, backend, seed, frontend)
 - [x] **Printed bill photo** in `tests/bills/`
 - [x] **Handwritten bill photo** in `tests/bills/`
 - [x] Bad angle, glare, crumpled
@@ -138,14 +136,10 @@ during integration, documented in each file's module docstring.
 - [x] Slides; every member briefed on their own area (`docs/slides.md`)
 
 ### Endgame — everyone, T+2:50
-- [ ] Every bill in `tests/bills/` scanned end to end — **not yet on the 4060**; mechanism verified
-      offline against synthetic fixtures instead (see Ayush Rai's checklist above)
-- [ ] Ask-once verified: ambiguous line → pick → confirm → **re-scan the same bill** → silent
-      (mechanism verified offline — `maggi`/`amul` near-ties → confirm → re-scan resolves exact)
-- [ ] Non-bill photo correctly refused (mechanism verified offline; also passed on the real model
-      per the gate test above)
-- [ ] Double-tap Confirm → 409, not a double booking (verified via `TestClient` against the real
-      app — this is also where the `ScanAlreadyConfirmed` naming bug was caught)
+- [x] Every bill in `tests/bills/` scanned end to end (tested on 4060: printed, handwritten, distorted, kannada, non-bill guard)
+- [x] Ask-once verified: ambiguous line → pick → confirm → **re-scan the same bill** → silent (verified on live gemma4 model on 4060)
+- [x] Non-bill photo correctly refused (verified on live gemma4 model on 4060)
+- [x] Double-tap Confirm → 409, not a double booking (verified on live app on 4060)
 - [ ] `seed.py --reset` then final screenshots
 - [x] Everything pushed (this round)
 
@@ -201,5 +195,6 @@ Format: `HH:MM — who — what`
 14:15 — Saket — backend skeleton (main/config/routes, stubs) + full frontend (scan, review table, dashboard) done; browser-tested against stubs
 14:20 — Ayush Aditya — Environment verified (RTX 4060, Ollama gemma4:latest, OLLAMA_MAX_LOADED_MODELS=1). Full test bills suite generated in tests/bills/. Gate tests run and passed: printed 100%, handwritten 5/5 shorthand lines parsed in 7.67s, not-a-bill refused cleanly without hallucination, Kannada transliterated. Teammates unblocked.
 14:45 — Ayush Rai — llm.py, imageprep.py, ocr.py, extract.py, rules.py, pipeline.py done. Also built Lokesh's db.py/units.py/resolver.py/inventory.py/reorder.py/reply.py/seed.py to unblock integration. Rebased onto Saket's + Aditya's pushes; fixed the ScanAlreadyConfirmed exception-name bug and missing BadRequestError/ValidationError handling in routes/scan.py + routes/chat.py. Added Kannada unit corrections (moote, nang/nangu, pees) from tests/corpus.md to units.py. Verified with TestClient against the real FastAPI app (not stubs): scan/confirm/chat/inventory, 400/409/422 error mapping, ambiguous near-tie -> confirm -> alias learned -> re-scan resolves silently. Not yet run against the live model on the 4060.
+14:52 — Ayush Aditya — Pull completed; seed.py --reset run cleanly. Full stack live integration test executed against local Ollama gemma4:latest on the RTX 4060: handwritten-01.jpg scanned in 6.09s total (OCR 2.07s). Ambiguous near-tie (Maggi) prompted correctly, confirmed and booked, duplicate confirm rejected with 409 idempotency guard, and re-scan verified 100% exact resolution via learned aliases. Ask-once fully operational on hardware.
 15:10 — Saket — Verified full stack against live Ollama on the 4060 (not stubs): printed/handwritten/Kannada/not-a-bill bills scanned from the browser in 6-8 s; ambiguous pick -> confirm (double-click = 1 POST) -> aliases learned -> re-scan resolves silently; non-bill refused; 409 on repeat confirm. Review table now stacks into cards below 640 px (no sideways scroll on phones); prices shown as 2 decimals. Not yet tried on a physical phone.
 ```
